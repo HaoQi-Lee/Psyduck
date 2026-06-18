@@ -1,0 +1,7 @@
+# init creates expected layout
+psy init
+exists .psy
+
+# init refuses to run twice
+! psy init
+stderr 'already initialized'

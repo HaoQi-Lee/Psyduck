@@ -1,0 +1,6 @@
+/bin/
+/psy
+/psy.exe
+*.test
+coverage.out
+.DS_Store
