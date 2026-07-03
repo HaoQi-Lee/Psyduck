@@ -76,6 +76,7 @@ For each doc:
 
 - **Document reality, not intent.** Never write aspirational SPEC.md content.
 - **Archive is move, not copy.** The source path is vacated.
+- **Do not archive implementation plans.** superpowers plan files (under `docs/superpowers/plans/`) are execution artifacts, not design docs — never move them into `.psy/`. Only design/spec docs from `docs/superpowers/specs/` are archived.
 - **Manual only.** This skill is never auto-invoked.
 - **Expect a large diff on first run.** Bootstrapping a repo will create many `SPEC.md` files at once. Review them as a batch before committing.
 

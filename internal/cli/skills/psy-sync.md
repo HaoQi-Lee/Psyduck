@@ -86,6 +86,7 @@ For each doc to archive:
 
 - **Document reality, not intent.** Never write aspirational SPEC.md content.
 - **Archive is move, not copy.** The source path is vacated.
+- **Do not archive implementation plans.** superpowers plan files (under `docs/superpowers/plans/`) are execution artifacts, not design docs — never move them into `.psy/`. Only design/spec docs from `docs/superpowers/specs/` are archived.
 - **Stay scoped.** If the change set is empty, surface that to the user — never expand to a full-repo scan.
 - **Never skip after `executing-plans`.** This is the close-out step that keeps the spec/archive contract intact.
 
