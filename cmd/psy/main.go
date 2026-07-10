@@ -9,8 +9,9 @@ import (
 
 func main() {
 	root := cli.NewRootCmd(os.Stdout, os.Stderr)
-	if err := root.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, "psy:", err)
-		os.Exit(cli.ExitInternal)
+	code, msg := cli.ExitCodeFromErr(root.Execute())
+	if msg != "" {
+		fmt.Fprintln(os.Stderr, "psy:", msg)
 	}
+	os.Exit(code)
 }
