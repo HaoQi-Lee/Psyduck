@@ -20,12 +20,11 @@ func TestMain(m *testing.M) {
 // instead of calling os.Exit, so testscript can capture it.
 func runPsyForTestscript() int {
 	root := NewRootCmd(os.Stdout, os.Stderr)
-	err := root.Execute()
-	if err == nil {
-		return ExitOK
+	code, msg := ExitCodeFromErr(root.Execute())
+	if msg != "" {
+		fmt.Fprintln(os.Stderr, "psy:", msg)
 	}
-	fmt.Fprintln(os.Stderr, "psy:", err)
-	return ExitInternal
+	return code
 }
 
 func TestScripts(t *testing.T) {
