@@ -30,9 +30,10 @@ func (e *ExitError) Error() string {
 
 // ExitCodeFromErr maps a command error to a process exit code plus an
 // optional stderr message.
-//   nil             -> (ExitOK, "")
-//   *ExitError      -> (Code, Msg)
-//   any other error -> (ExitInternal, err.Error())
+//
+//	nil             -> (ExitOK, "")
+//	*ExitError      -> (Code, Msg)
+//	any other error -> (ExitInternal, err.Error())
 func ExitCodeFromErr(err error) (int, string) {
 	if err == nil {
 		return ExitOK, ""
