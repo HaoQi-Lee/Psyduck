@@ -1,0 +1,21 @@
+# clean: declared set matches tracked files -> exit 0
+exec git init
+exec git config user.email t@example.com
+exec git config user.name t
+exec git config commit.gpgsign false
+exec git add -A
+exec git commit -m init
+
+psy check
+stdout '无漂移'
+
+-- pkg/root.go --
+package pkg
+-- pkg/SPEC.md --
+---
+package: pkg
+---
+
+# 文件
+
+- `root.go` — r
