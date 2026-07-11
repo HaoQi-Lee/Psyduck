@@ -50,6 +50,26 @@ psy version
 
 版本号通过 `go build -ldflags "-X github.com/psyduck/psyduck/internal/version.Version=vX.Y.Z"` 注入。
 
+### `psy check`
+
+只读检测每个 `SPEC.md` 与仓库现实的漂移，作为 CI / pre-commit 门禁。零参数、零 flag。
+
+- **结构漂移**（退出码 1，失败门禁）：`# 文件` 章节列出的文件集合与 `git ls-files` 跟踪的实际文件集合不一致（多/少），或 `package:` 路径与实际位置不符，或缺少 `# 文件` 章节。
+- **时序提示**（仅打印，退出码 0）：源文件最新提交比 `SPEC.md` 新，提示 spec 可能过期。
+
+```bash
+psy check
+# 发现: 0 处结构漂移, 0 条时序提示   （退出码 0）
+```
+
+| 退出码 | 含义 |
+|---|---|
+| `0` | 无结构漂移（时序提示不影响） |
+| `1` | 检测到结构漂移 |
+| `70` | 内部错误（非 git 仓库 / git 缺失 / 解析异常） |
+
+> `psy check` 只读：不写文件、不联网、不调 LLM。对账但重写请用 `/psy-sync-all`。
+
 ---
 
 ## Skills
