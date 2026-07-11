@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -26,5 +27,95 @@ func TestPackageReport_HasDrift(t *testing.T) {
 	require.False(t, PackageReport{Timing: []TimingHint{{}}}.HasDrift())
 }
 
-// keep the time import meaningful until timing tests arrive in 3.3
-var _ = time.Unix
+// fakeVCS is an in-memory VCS for testing checkWith without real git.
+type fakeVCS struct {
+	files map[string][]string  // relDir -> files (repo-root-relative)
+	times map[string]time.Time // relPath -> time (absent = no history)
+}
+
+func (f *fakeVCS) ListFiles(relDir string) ([]string, error) {
+	return f.files[relDir], nil
+}
+func (f *fakeVCS) LastCommitTime(relPath string) (time.Time, bool, error) {
+	t, ok := f.times[relPath]
+	return t, ok, nil
+}
+
+func TestCheck_StructuralDrift(t *testing.T) {
+	root := t.TempDir()
+	writeSpec(t, root, "pkg", "pkg", "- `root.go` — r\n- `old.go` — gone\n")
+	writeFile(t, filepath.Join(root, "pkg", "root.go"), "package pkg\n")
+	writeFile(t, filepath.Join(root, "pkg", "new.go"), "package pkg\n")
+
+	v := &fakeVCS{files: map[string][]string{
+		"":    {"pkg/SPEC.md"},
+		"pkg": {"pkg/SPEC.md", "pkg/root.go", "pkg/new.go"},
+	}}
+	rep, err := checkWith(root, v)
+	require.NoError(t, err)
+	require.Len(t, rep.Packages, 1)
+	pr := rep.Packages[0]
+	require.Equal(t, []string{"old.go"}, pr.ListedButGone)
+	require.Equal(t, []string{"new.go"}, pr.Undocumented)
+	require.True(t, pr.HasDrift())
+	require.Equal(t, 1, rep.DriftCount())
+}
+
+func TestCheck_CleanPackage(t *testing.T) {
+	root := t.TempDir()
+	writeSpec(t, root, "pkg", "pkg", "- `root.go` — r\n")
+	writeFile(t, filepath.Join(root, "pkg", "root.go"), "package pkg\n")
+	v := &fakeVCS{files: map[string][]string{
+		"":    {"pkg/SPEC.md"},
+		"pkg": {"pkg/SPEC.md", "pkg/root.go"},
+	}}
+	rep, err := checkWith(root, v)
+	require.NoError(t, err)
+	require.Len(t, rep.Packages, 1)
+	require.False(t, rep.Packages[0].HasDrift())
+}
+
+func TestCheck_NestedPackageExcluded(t *testing.T) {
+	root := t.TempDir()
+	writeSpec(t, root, "pkg", "pkg", "- `parent.go` — p\n")
+	writeFile(t, filepath.Join(root, "pkg", "parent.go"), "package pkg\n")
+	writeSpec(t, root, "pkg/child", "pkg/child", "- `child.go` — c\n")
+	writeFile(t, filepath.Join(root, "pkg", "child", "child.go"), "package child\n")
+	v := &fakeVCS{files: map[string][]string{
+		"":          {"pkg/SPEC.md", "pkg/child/SPEC.md"},
+		"pkg":       {"pkg/SPEC.md", "pkg/parent.go", "pkg/child/SPEC.md", "pkg/child/child.go"},
+		"pkg/child": {"pkg/child/SPEC.md", "pkg/child/child.go"},
+	}}
+	rep, err := checkWith(root, v)
+	require.NoError(t, err)
+	require.Len(t, rep.Packages, 2)
+	byDir := map[string]PackageReport{}
+	for _, p := range rep.Packages {
+		byDir[p.PkgDir] = p
+	}
+	require.False(t, byDir["pkg"].HasDrift(), "parent must not see child files")
+	require.Empty(t, byDir["pkg"].Undocumented)
+	require.False(t, byDir["pkg/child"].HasDrift())
+}
+
+func TestCheck_PackageMismatch(t *testing.T) {
+	root := t.TempDir()
+	writeSpec(t, root, "pkg", "wrong/path", "- `root.go` — r\n")
+	writeFile(t, filepath.Join(root, "pkg", "root.go"), "package pkg\n")
+	v := &fakeVCS{files: map[string][]string{"": {"pkg/SPEC.md"}, "pkg": {"pkg/SPEC.md", "pkg/root.go"}}}
+	rep, err := checkWith(root, v)
+	require.NoError(t, err)
+	require.True(t, rep.Packages[0].PackageMismatch)
+}
+
+func TestCheck_MissingFilesSection(t *testing.T) {
+	root := t.TempDir()
+	writeSpec(t, root, "pkg", "pkg", "") // no # 文件
+	writeFile(t, filepath.Join(root, "pkg", "root.go"), "package pkg\n")
+	v := &fakeVCS{files: map[string][]string{"": {"pkg/SPEC.md"}, "pkg": {"pkg/SPEC.md", "pkg/root.go"}}}
+	rep, err := checkWith(root, v)
+	require.NoError(t, err)
+	require.True(t, rep.Packages[0].MissingFileSection)
+	require.Empty(t, rep.Packages[0].ListedButGone)
+	require.Empty(t, rep.Packages[0].Undocumented)
+}

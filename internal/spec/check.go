@@ -1,6 +1,14 @@
 package spec
 
-import "time"
+import (
+	"fmt"
+	"os"
+	"path"
+	"path/filepath"
+	"sort"
+	"strings"
+	"time"
+)
 
 // Report is the result of checking a whole repository.
 type Report struct {
@@ -51,4 +59,129 @@ func (r Report) TimingCount() int {
 		n += len(p.Timing)
 	}
 	return n
+}
+
+// Check scans repoRoot for every SPEC.md and reports drift against git. It is
+// read-only. Equivalent to checkWith with a real gitVCS.
+func Check(repoRoot string) (Report, error) {
+	return checkWith(repoRoot, newGitVCS(repoRoot))
+}
+
+// checkWith is the testable core; vcs is injected so logic can be exercised
+// without a real git repository.
+func checkWith(repoRoot string, vcs VCS) (Report, error) {
+	rep := Report{Root: repoRoot}
+	all, err := vcs.ListFiles("")
+	if err != nil {
+		return rep, err
+	}
+	var specPaths []string
+	specDirs := map[string]bool{}
+	for _, f := range all {
+		if path.Base(f) == "SPEC.md" {
+			specPaths = append(specPaths, f)
+			specDirs[path.Dir(f)] = true
+		}
+	}
+	for _, sp := range specPaths {
+		pr, err := checkPackage(repoRoot, sp, vcs, specDirs)
+		if err != nil {
+			return rep, err
+		}
+		rep.Packages = append(rep.Packages, pr)
+	}
+	sort.Slice(rep.Packages, func(i, j int) bool {
+		return rep.Packages[i].SpecPath < rep.Packages[j].SpecPath
+	})
+	return rep, nil
+}
+
+func checkPackage(repoRoot, specPath string, vcs VCS, specDirs map[string]bool) (PackageReport, error) {
+	data, err := os.ReadFile(filepath.Join(repoRoot, filepath.FromSlash(specPath)))
+	if err != nil {
+		return PackageReport{}, fmt.Errorf("read %s: %w", specPath, err)
+	}
+	sp := Parse(specPath, data)
+	pr := PackageReport{
+		Package:  sp.Package,
+		SpecPath: specPath,
+		PkgDir:   sp.PkgDir,
+	}
+	if !sp.HasPackage || sp.Package != sp.PkgDir {
+		pr.PackageMismatch = true
+	}
+
+	actualRel, err := actualFiles(sp.PkgDir, specPath, specDirs, vcs)
+	if err != nil {
+		return pr, err
+	}
+
+	if sp.HasFilesSection {
+		declared := toSet(sp.Files)
+		for f := range declared {
+			if !actualRel[f] {
+				pr.ListedButGone = append(pr.ListedButGone, f)
+			}
+		}
+		for f := range actualRel {
+			if !declared[f] {
+				pr.Undocumented = append(pr.Undocumented, f)
+			}
+		}
+		sort.Strings(pr.ListedButGone)
+		sort.Strings(pr.Undocumented)
+	} else {
+		pr.MissingFileSection = true
+	}
+	return pr, nil
+}
+
+// actualFiles returns the set of pkg-dir-relative files tracked under pkgDir,
+// excluding the SPEC.md itself and nested-package subtrees.
+func actualFiles(pkgDir, specPath string, specDirs map[string]bool, vcs VCS) (map[string]bool, error) {
+	listed, err := vcs.ListFiles(pkgDir)
+	if err != nil {
+		return nil, err
+	}
+	pkgPrefix := pkgDir
+	if pkgPrefix != "" {
+		pkgPrefix += "/"
+	}
+	out := map[string]bool{}
+	for _, f := range listed {
+		if f == specPath {
+			continue
+		}
+		if inNestedSpecDir(f, specPath, specDirs) {
+			continue
+		}
+		out[strings.TrimPrefix(f, pkgPrefix)] = true
+	}
+	return out, nil
+}
+
+func toSet(xs []string) map[string]bool {
+	m := map[string]bool{}
+	for _, x := range xs {
+		m[x] = true
+	}
+	return m
+}
+
+// inNestedSpecDir reports whether file f lives under a proper subdirectory of
+// specPath's dir that itself contains a SPEC.md (a nested package).
+func inNestedSpecDir(f, specPath string, specDirs map[string]bool) bool {
+	specDir := path.Dir(specPath)
+	d := path.Dir(f)
+	for d != specDir && d != "." && d != "" {
+		if specDirs[d] {
+			return true
+		}
+		parent := path.Dir(d)
+		if parent == d {
+			break
+		}
+		d = parent
+	}
+	return false
 }
