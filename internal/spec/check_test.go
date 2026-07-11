@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -29,14 +30,22 @@ func TestPackageReport_HasDrift(t *testing.T) {
 
 // fakeVCS is an in-memory VCS for testing checkWith without real git.
 type fakeVCS struct {
-	files map[string][]string  // relDir -> files (repo-root-relative)
-	times map[string]time.Time // relPath -> time (absent = no history)
+	files   map[string][]string  // relDir -> files (repo-root-relative)
+	times   map[string]time.Time // relPath -> time (absent = no history)
+	listErr error                // if set, ListFiles returns this error
+	timeErr error                // if set, LastCommitTime returns this error
 }
 
 func (f *fakeVCS) ListFiles(relDir string) ([]string, error) {
+	if f.listErr != nil {
+		return nil, f.listErr
+	}
 	return f.files[relDir], nil
 }
 func (f *fakeVCS) LastCommitTime(relPath string) (time.Time, bool, error) {
+	if f.timeErr != nil {
+		return time.Time{}, false, f.timeErr
+	}
 	t, ok := f.times[relPath]
 	return t, ok, nil
 }
@@ -152,4 +161,41 @@ func TestCheck_TimingSpecUntracked(t *testing.T) {
 	rep, err := checkWith(root, v)
 	require.NoError(t, err)
 	require.Empty(t, rep.Packages[0].Timing)
+}
+
+func TestCheck_ListFilesErrorPropagated(t *testing.T) {
+	root := t.TempDir()
+	v := &fakeVCS{listErr: errors.New("list boom")}
+	_, err := checkWith(root, v)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "list boom")
+}
+
+func TestCheck_LastCommitTimeErrorPropagated(t *testing.T) {
+	root := t.TempDir()
+	writeSpec(t, root, "pkg", "pkg", "- `root.go` — r\n")
+	writeFile(t, filepath.Join(root, "pkg", "root.go"), "package pkg\n")
+	v := &fakeVCS{
+		files:   map[string][]string{"": {"pkg/SPEC.md"}, "pkg": {"pkg/SPEC.md", "pkg/root.go"}},
+		timeErr: errors.New("time boom"),
+	}
+	_, err := checkWith(root, v)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "time boom")
+}
+
+func TestCheck_RootLevelSpec(t *testing.T) {
+	root := t.TempDir()
+	// package: "" parses to an empty name (trimQuotes), matching the root
+	// PkgDir ("") so PackageMismatch stays false.
+	writeSpec(t, root, "", `""`, "- `main.go` — m\n")
+	writeFile(t, filepath.Join(root, "main.go"), "package main\n")
+	v := &fakeVCS{files: map[string][]string{
+		"": {"SPEC.md", "main.go"},
+	}}
+	rep, err := checkWith(root, v)
+	require.NoError(t, err)
+	require.Len(t, rep.Packages, 1)
+	require.Equal(t, "", rep.Packages[0].PkgDir)
+	require.False(t, rep.Packages[0].HasDrift())
 }

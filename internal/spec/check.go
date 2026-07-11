@@ -62,7 +62,8 @@ func (r Report) TimingCount() int {
 }
 
 // Check scans repoRoot for every SPEC.md and reports drift against git. It is
-// read-only. Equivalent to checkWith with a real gitVCS.
+// read-only. Equivalent to checkWith with a real gitVCS. Check aborts on the
+// first per-package error (fail-fast).
 func Check(repoRoot string) (Report, error) {
 	return checkWith(repoRoot, newGitVCS(repoRoot))
 }
@@ -135,9 +136,11 @@ func checkPackage(repoRoot, specPath string, vcs VCS, specDirs map[string]bool) 
 	}
 
 	// Timing hints are advisory and never affect the exit code.
-	if specTime, specOK, err := vcs.LastCommitTime(specPath); err != nil {
+	specTime, specOK, err := vcs.LastCommitTime(specPath)
+	if err != nil {
 		return pr, err
-	} else if specOK {
+	}
+	if specOK {
 		pkgPrefix := sp.PkgDir
 		if pkgPrefix != "" {
 			pkgPrefix += "/"
