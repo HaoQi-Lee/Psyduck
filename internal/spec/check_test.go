@@ -119,3 +119,37 @@ func TestCheck_MissingFilesSection(t *testing.T) {
 	require.Empty(t, rep.Packages[0].ListedButGone)
 	require.Empty(t, rep.Packages[0].Undocumented)
 }
+
+func TestCheck_TimingHint(t *testing.T) {
+	root := t.TempDir()
+	writeSpec(t, root, "pkg", "pkg", "- `root.go` — r\n")
+	writeFile(t, filepath.Join(root, "pkg", "root.go"), "package pkg\n")
+	specT := time.Unix(1_700_000_000, 0) // older
+	fileT := time.Unix(1_710_000_000, 0) // newer
+	v := &fakeVCS{
+		files: map[string][]string{"": {"pkg/SPEC.md"}, "pkg": {"pkg/SPEC.md", "pkg/root.go"}},
+		times: map[string]time.Time{"pkg/SPEC.md": specT, "pkg/root.go": fileT},
+	}
+	rep, err := checkWith(root, v)
+	require.NoError(t, err)
+	require.Len(t, rep.Packages[0].Timing, 1)
+	require.Equal(t, "root.go", rep.Packages[0].Timing[0].File)
+	require.Equal(t, 1, rep.TimingCount())
+	// timing is advisory: not drift
+	require.False(t, rep.Packages[0].HasDrift())
+	require.Equal(t, 0, rep.DriftCount())
+}
+
+func TestCheck_TimingSpecUntracked(t *testing.T) {
+	root := t.TempDir()
+	writeSpec(t, root, "pkg", "pkg", "- `root.go` — r\n")
+	writeFile(t, filepath.Join(root, "pkg", "root.go"), "package pkg\n")
+	// spec absent from times (no commit history) -> timing skipped, no error
+	v := &fakeVCS{
+		files: map[string][]string{"": {"pkg/SPEC.md"}, "pkg": {"pkg/SPEC.md", "pkg/root.go"}},
+		times: map[string]time.Time{"pkg/root.go": time.Unix(1_710_000_000, 0)},
+	}
+	rep, err := checkWith(root, v)
+	require.NoError(t, err)
+	require.Empty(t, rep.Packages[0].Timing)
+}

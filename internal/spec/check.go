@@ -133,6 +133,25 @@ func checkPackage(repoRoot, specPath string, vcs VCS, specDirs map[string]bool) 
 	} else {
 		pr.MissingFileSection = true
 	}
+
+	// Timing hints are advisory and never affect the exit code.
+	if specTime, specOK, err := vcs.LastCommitTime(specPath); err != nil {
+		return pr, err
+	} else if specOK {
+		pkgPrefix := sp.PkgDir
+		if pkgPrefix != "" {
+			pkgPrefix += "/"
+		}
+		for _, f := range sortedKeys(actualRel) {
+			ft, ok, err := vcs.LastCommitTime(pkgPrefix + f)
+			if err != nil {
+				return pr, err
+			}
+			if ok && ft.After(specTime) {
+				pr.Timing = append(pr.Timing, TimingHint{File: f, FileTime: ft, SpecTime: specTime})
+			}
+		}
+	}
 	return pr, nil
 }
 
@@ -184,4 +203,13 @@ func inNestedSpecDir(f, specPath string, specDirs map[string]bool) bool {
 		d = parent
 	}
 	return false
+}
+
+func sortedKeys(m map[string]bool) []string {
+	ks := make([]string, 0, len(m))
+	for k := range m {
+		ks = append(ks, k)
+	}
+	sort.Strings(ks)
+	return ks
 }
