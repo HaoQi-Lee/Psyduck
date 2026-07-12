@@ -7,9 +7,9 @@ exec git add -A
 exec git commit -m init
 
 ! psy check
-stdout '已过期'
-stdout 'old.go'
-stdout '未文档化'
+stdout 'pkg: NG'
+stdout 'new\.go \(undocumented\)'
+stdout 'old\.go \(missing\)'
 
 -- pkg/root.go --
 package pkg

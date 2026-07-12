@@ -59,7 +59,8 @@ psy version
 
 ```bash
 psy check
-# 发现: 0 处结构漂移, 0 条时序提示   （退出码 0）
+# pkg: OK
+# summary: 0 drift, 0 stale   (exit 0)
 ```
 
 | 退出码 | 含义 |

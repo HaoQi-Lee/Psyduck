@@ -7,7 +7,7 @@ exec git add -A
 exec git commit -m init
 
 psy check
-stdout '无漂移'
+stdout 'pkg: OK'
 
 -- pkg/root.go --
 package pkg

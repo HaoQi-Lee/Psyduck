@@ -36,40 +36,37 @@ func runCheck(cmd *cobra.Command) error {
 	return nil
 }
 
-// renderReport writes a plain-text, grep-friendly summary. No ANSI colors.
+// renderReport writes a compact, plain-text, grep-friendly summary: one line
+// per package ("<path>: OK|NG"), with indented detail lines only when needed.
+// No ANSI colors, no Chinese.
 func renderReport(w io.Writer, r spec.Report) {
-	fmt.Fprintf(w, "psy check — 检查 SPEC.md 与现实的漂移\n\n")
+	fmt.Fprintln(w, "psy check")
 	for _, p := range r.Packages {
 		label := p.PkgDir
 		if label == "" {
-			label = "(repo root)"
+			label = "."
 		}
-		fmt.Fprintf(w, "%s  (SPEC.md)\n", label)
+		status := "OK"
 		if p.HasDrift() {
-			fmt.Fprintln(w, "  ✗ 结构漂移")
-			for _, f := range p.ListedButGone {
-				fmt.Fprintf(w, "      - 已过期:   %s   （SPEC 列了，目录没有）\n", f)
-			}
-			for _, f := range p.Undocumented {
-				fmt.Fprintf(w, "      + 未文档化: %s   （目录有，SPEC 未列）\n", f)
-			}
-			if p.PackageMismatch {
-				fmt.Fprintln(w, "      ! package 路径与实际位置不符")
-			}
-			if p.MissingFileSection {
-				fmt.Fprintln(w, "      ! 缺少 # 文件 章节")
-			}
-		} else {
-			fmt.Fprintln(w, "  ✓ 无漂移")
+			status = "NG"
 		}
-		if len(p.Timing) > 0 {
-			fmt.Fprintln(w, "  ⚠ 时序提示")
-			for _, th := range p.Timing {
-				days := int(th.FileTime.Sub(th.SpecTime).Hours() / 24)
-				fmt.Fprintf(w, "      %s 比 SPEC 新 %d 天（spec 可能过期）\n", th.File, days)
-			}
+		fmt.Fprintf(w, "%s: %s\n", label, status)
+		for _, f := range p.Undocumented {
+			fmt.Fprintf(w, "  + %s (undocumented)\n", f)
 		}
-		fmt.Fprintln(w)
+		for _, f := range p.ListedButGone {
+			fmt.Fprintf(w, "  - %s (missing)\n", f)
+		}
+		if p.PackageMismatch {
+			fmt.Fprintf(w, "  ! package mismatch (declared %q, at %q)\n", p.Package, p.PkgDir)
+		}
+		if p.MissingFileSection {
+			fmt.Fprintln(w, "  ! missing files section")
+		}
+		for _, th := range p.Timing {
+			days := int(th.FileTime.Sub(th.SpecTime).Hours() / 24)
+			fmt.Fprintf(w, "  ~ %s (%dd newer than spec)\n", th.File, days)
+		}
 	}
-	fmt.Fprintf(w, "发现: %d 处结构漂移, %d 条时序提示\n", r.DriftCount(), r.TimingCount())
+	fmt.Fprintf(w, "summary: %d drift, %d stale\n", r.DriftCount(), r.TimingCount())
 }

@@ -32,13 +32,15 @@ func TestRenderReport_DriftAndTiming(t *testing.T) {
 		},
 	})
 	out := b.String()
-	require.Contains(t, out, "✗ 结构漂移")
-	require.Contains(t, out, "- 已过期:   old.go")
-	require.Contains(t, out, "+ 未文档化: new.go")
-	require.Contains(t, out, "⚠ 时序提示")
-	require.Contains(t, out, "root.go 比 SPEC 新")
-	require.Contains(t, out, "✓ 无漂移")
-	require.Contains(t, out, "发现: 1 处结构漂移, 1 条时序提示")
+	require.Contains(t, out, "pkg: NG")
+	require.Contains(t, out, "+ new.go (undocumented)")
+	require.Contains(t, out, "- old.go (missing)")
+	require.Contains(t, out, "clean: OK")
+	require.Contains(t, out, "~ root.go")
+	require.Contains(t, out, "newer than spec")
+	require.Contains(t, out, "summary: 1 drift, 1 stale")
+	require.NotContains(t, out, "(SPEC.md)")
+	require.NotContains(t, out, "无漂移")
 }
 
 func cliGitInit(t *testing.T, dir string) {
@@ -81,7 +83,7 @@ func TestRunCheck_ExitDriftOnDrift(t *testing.T) {
 	require.Error(t, err)
 	code, _ := ExitCodeFromErr(err)
 	require.Equal(t, ExitDrift, code)
-	require.Contains(t, out.String(), "结构漂移")
+	require.Contains(t, out.String(), "pkg: NG")
 }
 
 func TestRunCheck_ExitOKWhenClean(t *testing.T) {
@@ -97,5 +99,5 @@ func TestRunCheck_ExitOKWhenClean(t *testing.T) {
 	root := NewRootCmd(&out, &out)
 	root.SetArgs([]string{"check"})
 	require.NoError(t, root.Execute())
-	require.Contains(t, out.String(), "无漂移")
+	require.Contains(t, out.String(), "pkg: OK")
 }

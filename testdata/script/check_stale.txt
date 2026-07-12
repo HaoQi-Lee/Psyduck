@@ -15,8 +15,8 @@ env GIT_COMMITTER_DATE=2026-07-01T00:00:00
 exec git commit -m update
 
 psy check
-stdout '时序提示'
-stdout 'root.go 比 SPEC 新'
+stdout '~ root.go'
+stdout 'newer than spec'
 
 -- pkg/root.go --
 package pkg
