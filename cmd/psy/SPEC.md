@@ -26,4 +26,4 @@ created: 2026-06-05
 
 ## 错误处理策略
 
-`main.go` 不区分错误类型，统一以 `cli.ExitInternal`（70）退出。所有子命令错误均由 cobra 的 `RunE` 返回，cobra 本身通过 `SilenceErrors: true` 抑制重复输出，由 `main` 自行格式化并打印到 stderr。
+`main.go` 经 `cli.ExitCodeFromErr` 把命令错误映射为退出码：`*cli.ExitError` 用其携带的码（如 `psy check` 漂移→1），其他错误→`cli.ExitInternal`（70）；非空 `Msg` 打到 stderr。所有子命令错误均由 cobra 的 `RunE` 返回，cobra 通过 `SilenceErrors: true` 抑制重复输出。
