@@ -54,8 +54,16 @@ psy version
 
 只读检测每个 `SPEC.md` 与仓库现实的漂移，作为 CI / pre-commit 门禁。零参数、零 flag。
 
-- **结构漂移**（退出码 1，失败门禁）：`# 文件` 章节列出的文件集合与 `git ls-files` 跟踪的实际文件集合不一致（多/少），或 `package:` 路径与实际位置不符，或缺少 `# 文件` 章节。
+- **结构漂移**（退出码 1，失败门禁）：`# 文件` 章节列出的文件集合与该包实际文件集合不一致（多/少），或 `package:` 路径与实际位置不符，或缺少 `# 文件` 章节。
 - **时序提示**（仅打印，退出码 0）：源文件最新提交比 `SPEC.md` 新，提示 spec 可能过期。
+
+**实际文件集合**取自 `git ls-files`（git 为硬依赖），并剔除：
+
+- `SPEC.md` 自身；
+- 含子 `SPEC.md` 的嵌套包子目录（归子包，不在父包重复计入）；
+- **非代码目录**：`testdata`、`vendor`、`node_modules`，以及点前缀目录（`.idea`、`.git`、`.vscode` 等）——按任意一级目录段匹配，不参与漂移判定。
+
+> **根目录恒非包**：仓库根的 `SPEC.md`（即使存在）被跳过——根级文件（`go.mod`、`README.md` 等）与独立非包目录天然不参与 check。
 
 ```bash
 psy check
@@ -199,9 +207,10 @@ package: internal/cli
 psyduck/
 ├── cmd/psy/                   # 入口 main.go
 ├── internal/
-│   ├── cli/                   # 子命令：root.go, init.go, version.go
+│   ├── cli/                   # 子命令 (root/init/version/check) + 退出码
 │   │   ├── claudemd/          #   嵌入的 CLAUDE.md section
 │   │   └── skills/            #   嵌入的 skill 文件 (psy-sync, psy-sync-all)
+│   ├── spec/                  # check 漂移检测纯逻辑：解析 + git 抽象 + 比对
 │   └── version/               # 构建期注入版本号
 ├── testdata/script/           # testscript E2E 测试
 ├── docs/                      # 设计文档暂存（归档后清空）
