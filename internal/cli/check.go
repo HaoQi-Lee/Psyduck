@@ -40,7 +40,6 @@ func runCheck(cmd *cobra.Command) error {
 // per package ("<path>: OK|NG"), with indented detail lines only when needed.
 // No ANSI colors, no Chinese.
 func renderReport(w io.Writer, r spec.Report) {
-	fmt.Fprintln(w, "psy check")
 	for _, p := range r.Packages {
 		label := p.PkgDir
 		if label == "" {
