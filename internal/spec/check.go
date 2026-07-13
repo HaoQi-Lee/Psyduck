@@ -79,10 +79,17 @@ func checkWith(repoRoot string, vcs VCS) (Report, error) {
 	var specPaths []string
 	specDirs := map[string]bool{}
 	for _, f := range all {
-		if path.Base(f) == "SPEC.md" {
-			specPaths = append(specPaths, f)
-			specDirs[path.Dir(f)] = true
+		if path.Base(f) != "SPEC.md" {
+			continue
 		}
+		// Root is never a package: a SPEC.md at the repo root has PkgDir "" and
+		// actualFiles("") would sweep the whole repo as its file set. Skip it.
+		dir := path.Dir(f)
+		if dir == "." || dir == "" {
+			continue
+		}
+		specPaths = append(specPaths, f)
+		specDirs[dir] = true
 	}
 	for _, sp := range specPaths {
 		pr, err := checkPackage(repoRoot, sp, vcs, specDirs)
@@ -177,9 +184,34 @@ func actualFiles(pkgDir, specPath string, specDirs map[string]bool, vcs VCS) (ma
 		if inNestedSpecDir(f, specPath, specDirs) {
 			continue
 		}
+		if isNonCode(f) {
+			continue
+		}
 		out[strings.TrimPrefix(f, pkgPrefix)] = true
 	}
 	return out, nil
+}
+
+// nonCodeDirs are directory names that never constitute package source: test
+// fixtures (testdata) and dependency trees (vendor, node_modules). A file
+// anywhere under such a directory is excluded from the actual-file set, as is
+// anything under a dot-directory (.idea, .git, .vscode, ...). Only directory
+// segments are considered, so dot-files like .gitignore are kept.
+var nonCodeDirs = map[string]bool{
+	"testdata":     true,
+	"vendor":       true,
+	"node_modules": true,
+}
+
+// isNonCode reports whether repoRelPath lives under a non-code or dot directory.
+func isNonCode(repoRelPath string) bool {
+	segs := strings.Split(repoRelPath, "/")
+	for _, seg := range segs[:len(segs)-1] { // directory segments only
+		if nonCodeDirs[seg] || strings.HasPrefix(seg, ".") {
+			return true
+		}
+	}
+	return false
 }
 
 func toSet(xs []string) map[string]bool {

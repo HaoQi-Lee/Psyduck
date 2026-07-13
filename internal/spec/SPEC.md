@@ -49,4 +49,8 @@ git 永远返回正斜杠路径。切分 git 返回的字符串必须用 `path` 
 
 ## 漂移语义
 
-声明集 D（`# 文件`，包目录相对）vs 实际集 A（`git ls-files`，剔除 SPEC.md 自身与含子 SPEC.md 的嵌套包子目录，重定位为包目录相对）。`ListedButGone`（D∖A）、`Undocumented`（A∖D）；`package:` 值与位置不符或缺 `# 文件` 章节亦记为漂移。时序提示恒不影响漂移判定（仅提示）。
+声明集 D（`# 文件`，包目录相对）vs 实际集 A（`git ls-files`，剔除：SPEC.md 自身、含子 SPEC.md 的嵌套包子目录、**非代码目录**下的文件，再重定位为包目录相对）。`ListedButGone`（D∖A）、`Undocumented`（A∖D）；`package:` 值与位置不符或缺 `# 文件` 章节亦记为漂移。时序提示恒不影响漂移判定（仅提示）。
+
+**根目录恒非包**：仓库根的 `SPEC.md`（`path.Dir == "."`）在发现阶段被跳过——否则其 `PkgDir=""` 会让 `actualFiles("")` 扫遍全仓当文件集。故根级文件（`go.mod`、`README.md` 等）与独立非包目录天然不参与 check。
+
+**非代码目录排除**：`actualFiles` 按**任意一级目录段**自动剔除 `testdata`、`vendor`、`node_modules` 及点前缀目录（`.idea`、`.git`、`.vscode` 等，编辑器/VCS 噪声），见 `isNonCode`。仅按目录段判定，故点文件（如 `.gitignore`）保留。范围刻意收窄：`static`/`assets`/`dist`/`build` 等项目相关目录不全局排除（可能需被 spec 登记），日后如需再按 per-SPEC opt-out 扩展。

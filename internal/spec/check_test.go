@@ -184,18 +184,47 @@ func TestCheck_LastCommitTimeErrorPropagated(t *testing.T) {
 	require.Contains(t, err.Error(), "time boom")
 }
 
-func TestCheck_RootLevelSpec(t *testing.T) {
+func TestCheck_RootSpecIgnored(t *testing.T) {
 	root := t.TempDir()
-	// package: "" parses to an empty name (trimQuotes), matching the root
-	// PkgDir ("") so PackageMismatch stays false.
-	writeSpec(t, root, "", `""`, "- `main.go` — m\n")
+	// A SPEC.md at the repo root is intentionally not a package: its PkgDir
+	// would be "" and actualFiles("") sweeps the whole repo. check must skip it
+	// outright while still processing sibling packages.
+	writeSpec(t, root, "", "root", "- `main.go` — m\n")
 	writeFile(t, filepath.Join(root, "main.go"), "package main\n")
+	writeSpec(t, root, "pkg", "pkg", "- `root.go` — r\n")
+	writeFile(t, filepath.Join(root, "pkg", "root.go"), "package pkg\n")
 	v := &fakeVCS{files: map[string][]string{
-		"": {"SPEC.md", "main.go"},
+		"":    {"SPEC.md", "main.go", "pkg/SPEC.md"},
+		"pkg": {"pkg/SPEC.md", "pkg/root.go"},
+	}}
+	rep, err := checkWith(root, v)
+	require.NoError(t, err)
+	require.Len(t, rep.Packages, 1, "root SPEC.md must be ignored")
+	require.Equal(t, "pkg", rep.Packages[0].PkgDir)
+	require.False(t, rep.Packages[0].HasDrift())
+}
+
+func TestCheck_NonCodeDirsExcluded(t *testing.T) {
+	root := t.TempDir()
+	writeSpec(t, root, "pkg", "pkg", "- `root.go` — r\n")
+	writeFile(t, filepath.Join(root, "pkg", "root.go"), "package pkg\n")
+	// Files under non-code dirs (testdata / dot-dir / vendor / node_modules) are
+	// never package source and must not be flagged undocumented.
+	v := &fakeVCS{files: map[string][]string{
+		"": {"pkg/SPEC.md"},
+		"pkg": {
+			"pkg/SPEC.md",
+			"pkg/root.go",
+			"pkg/testdata/fixture.txt",
+			"pkg/.idea/config.xml",
+			"pkg/vendor/lib.go",
+			"pkg/node_modules/mod/index.js",
+		},
 	}}
 	rep, err := checkWith(root, v)
 	require.NoError(t, err)
 	require.Len(t, rep.Packages, 1)
-	require.Equal(t, "", rep.Packages[0].PkgDir)
-	require.False(t, rep.Packages[0].HasDrift())
+	pr := rep.Packages[0]
+	require.Empty(t, pr.Undocumented, "non-code dirs must be excluded")
+	require.False(t, pr.HasDrift())
 }
