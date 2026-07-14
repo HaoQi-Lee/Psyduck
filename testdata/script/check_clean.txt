@@ -1,4 +1,4 @@
-# clean: declared set matches tracked files -> exit 0
+# clean: no changes to the package since the SPEC's last commit -> exit 0
 exec git init
 exec git config user.email t@example.com
 exec git config user.name t

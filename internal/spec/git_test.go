@@ -45,3 +45,44 @@ func TestGitVCS_ListFilesAndTimes(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, ok) // no commit history
 }
+
+func TestGitVCS_LastCommitAndDiff(t *testing.T) {
+	root := t.TempDir()
+	initGitRepo(t, root)
+	writeFile(t, filepath.Join(root, "pkg", "keep.go"), "package pkg\n")
+	writeFile(t, filepath.Join(root, "pkg", "gone.go"), "package pkg\n")
+	writeFile(t, filepath.Join(root, "pkg", "SPEC.md"), "---\npackage: pkg\n---\n")
+	commitAllAt(t, root, "init", "2026-06-05T00:00:00")
+
+	v := newGitVCS(root)
+
+	anchor, ok, err := v.LastCommit("pkg/SPEC.md")
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Len(t, anchor, 40) // SHA-1 hex
+
+	_, ok, err = v.LastCommit("never.go")
+	require.NoError(t, err)
+	require.False(t, ok) // no commit history
+
+	// No change since the SPEC's last commit.
+	changes, err := v.DiffNameStatus(anchor, "pkg")
+	require.NoError(t, err)
+	require.Empty(t, changes)
+
+	// Second commit: add new.go, delete gone.go, modify keep.go (SPEC untouched).
+	writeFile(t, filepath.Join(root, "pkg", "new.go"), "package pkg\n")
+	require.NoError(t, os.Remove(filepath.Join(root, "pkg", "gone.go")))
+	writeFile(t, filepath.Join(root, "pkg", "keep.go"), "package pkg\n// changed\n")
+	commitAllAt(t, root, "edit", "2026-07-01T00:00:00")
+
+	changes, err = v.DiffNameStatus(anchor, "pkg")
+	require.NoError(t, err)
+	byPath := map[string]string{}
+	for _, c := range changes {
+		byPath[c.Path] = c.Status
+	}
+	require.Equal(t, "A", byPath["pkg/new.go"], "new.go added since sync")
+	require.Equal(t, "D", byPath["pkg/gone.go"], "gone.go deleted since sync")
+	require.Equal(t, "M", byPath["pkg/keep.go"], "keep.go modified since sync")
+}

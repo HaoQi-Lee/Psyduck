@@ -50,17 +50,20 @@ func renderReport(w io.Writer, r spec.Report) {
 			status = "NG"
 		}
 		fmt.Fprintf(w, "%s: %s\n", label, status)
-		for _, f := range p.Undocumented {
-			fmt.Fprintf(w, "  + %s (undocumented)\n", f)
+		for _, f := range p.Added {
+			fmt.Fprintf(w, "  + %s (added)\n", f)
 		}
-		for _, f := range p.ListedButGone {
-			fmt.Fprintf(w, "  - %s (missing)\n", f)
+		for _, f := range p.Removed {
+			fmt.Fprintf(w, "  - %s (removed)\n", f)
 		}
 		if p.PackageMismatch {
 			fmt.Fprintf(w, "  ! package mismatch (declared %q, at %q)\n", p.Package, p.PkgDir)
 		}
 		if p.MissingFileSection {
 			fmt.Fprintln(w, "  ! missing files section")
+		}
+		if p.SpecUntracked {
+			fmt.Fprintln(w, "  ~ SPEC.md not committed (skipped)")
 		}
 		for _, th := range p.Timing {
 			days := int(th.FileTime.Sub(th.SpecTime).Hours() / 24)

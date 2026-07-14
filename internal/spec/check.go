@@ -23,9 +23,10 @@ type PackageReport struct {
 	PkgDir             string       // repo-root-relative dir of the SPEC.md
 	PackageMismatch    bool         // package: value != PkgDir (or absent)
 	MissingFileSection bool         // no # 文件 heading found
-	ListedButGone      []string     // declared but not on disk (pkg-relative)
-	Undocumented       []string     // on disk but not declared (pkg-relative)
-	Timing             []TimingHint // source newer than spec (advisory)
+	Added              []string     // source-type files added since sync, unlisted (pkg-relative)
+	Removed            []string     // files deleted since sync, still listed (pkg-relative)
+	SpecUntracked      bool         // SPEC.md has no commit history; drift not measurable
+	Timing             []TimingHint // modified since sync (advisory)
 }
 
 // TimingHint flags a source file whose latest commit is newer than the spec's.
@@ -38,7 +39,7 @@ type TimingHint struct {
 // HasDrift reports any structural drift (excludes timing, which is advisory).
 func (p PackageReport) HasDrift() bool {
 	return p.PackageMismatch || p.MissingFileSection ||
-		len(p.ListedButGone) > 0 || len(p.Undocumented) > 0
+		len(p.Added) > 0 || len(p.Removed) > 0
 }
 
 // DriftCount is the number of packages with structural drift.
@@ -83,7 +84,7 @@ func checkWith(repoRoot string, vcs VCS) (Report, error) {
 			continue
 		}
 		// Root is never a package: a SPEC.md at the repo root has PkgDir "" and
-		// actualFiles("") would sweep the whole repo as its file set. Skip it.
+		// DiffNameStatus(anchor, "") would diff the whole repo. Skip it.
 		dir := path.Dir(f)
 		if dir == "." || dir == "" {
 			continue
@@ -118,78 +119,82 @@ func checkPackage(repoRoot, specPath string, vcs VCS, specDirs map[string]bool) 
 	if !sp.HasPackage || sp.Package != sp.PkgDir {
 		pr.PackageMismatch = true
 	}
+	if !sp.HasFilesSection {
+		// Without # 文件 there is no declared set or type vocabulary to compare
+		// against; this is itself drift (the SPEC is incomplete).
+		pr.MissingFileSection = true
+		return pr, nil
+	}
 
-	actualRel, err := actualFiles(sp.PkgDir, specPath, specDirs, vcs)
+	// Anchor = the SPEC's last commit. Only changes after it are post-sync.
+	anchor, ok, err := vcs.LastCommit(specPath)
+	if err != nil {
+		return pr, err
+	}
+	if !ok {
+		// SPEC uncommitted: cannot measure post-sync changes. Not drift.
+		pr.SpecUntracked = true
+		return pr, nil
+	}
+
+	changes, err := vcs.DiffNameStatus(anchor, sp.PkgDir)
 	if err != nil {
 		return pr, err
 	}
 
-	if sp.HasFilesSection {
-		declared := toSet(sp.Files)
-		for f := range declared {
-			if !actualRel[f] {
-				pr.ListedButGone = append(pr.ListedButGone, f)
-			}
+	pkgPrefix := sp.PkgDir
+	if pkgPrefix != "" {
+		pkgPrefix += "/"
+	}
+	// Filter diff entries (SPEC.md itself, nested-package subtrees, non-code
+	// dirs) and relativize to the package directory before classifying.
+	var rel []NameStatus
+	for _, c := range changes {
+		if isExcluded(c.Path, specPath, specDirs) {
+			continue
 		}
-		for f := range actualRel {
-			if !declared[f] {
-				pr.Undocumented = append(pr.Undocumented, f)
-			}
-		}
-		sort.Strings(pr.ListedButGone)
-		sort.Strings(pr.Undocumented)
-	} else {
-		pr.MissingFileSection = true
+		rel = append(rel, NameStatus{
+			Status:  c.Status,
+			Path:    strings.TrimPrefix(c.Path, pkgPrefix),
+			OldPath: strings.TrimPrefix(c.OldPath, pkgPrefix),
+		})
 	}
 
-	// Timing hints are advisory and never affect the exit code.
+	added, removed, modified := classify(rel, toSet(sp.Files), typeKeys(sp.Files))
+	pr.Added = added
+	pr.Removed = removed
+
+	// Stale: files modified since sync (advisory, never affects exit code).
 	specTime, specOK, err := vcs.LastCommitTime(specPath)
 	if err != nil {
 		return pr, err
 	}
 	if specOK {
-		pkgPrefix := sp.PkgDir
-		if pkgPrefix != "" {
-			pkgPrefix += "/"
-		}
-		for _, f := range sortedKeys(actualRel) {
-			ft, ok, err := vcs.LastCommitTime(pkgPrefix + f)
+		for _, f := range modified {
+			ft, mok, err := vcs.LastCommitTime(pkgPrefix + f)
 			if err != nil {
 				return pr, err
 			}
-			if ok && ft.After(specTime) {
+			if mok && ft.After(specTime) {
 				pr.Timing = append(pr.Timing, TimingHint{File: f, FileTime: ft, SpecTime: specTime})
 			}
 		}
+		sort.Slice(pr.Timing, func(i, j int) bool { return pr.Timing[i].File < pr.Timing[j].File })
 	}
 	return pr, nil
 }
 
-// actualFiles returns the set of pkg-dir-relative files tracked under pkgDir,
-// excluding the SPEC.md itself and nested-package subtrees.
-func actualFiles(pkgDir, specPath string, specDirs map[string]bool, vcs VCS) (map[string]bool, error) {
-	listed, err := vcs.ListFiles(pkgDir)
-	if err != nil {
-		return nil, err
+// isExcluded reports whether a repo-root-relative diff path should be ignored:
+// the SPEC.md itself, a file under a non-code dir, or a file in a nested
+// package subtree (which belongs to the child SPEC, not this one).
+func isExcluded(repoRel, specPath string, specDirs map[string]bool) bool {
+	if repoRel == specPath {
+		return true
 	}
-	pkgPrefix := pkgDir
-	if pkgPrefix != "" {
-		pkgPrefix += "/"
+	if isNonCode(repoRel) {
+		return true
 	}
-	out := map[string]bool{}
-	for _, f := range listed {
-		if f == specPath {
-			continue
-		}
-		if inNestedSpecDir(f, specPath, specDirs) {
-			continue
-		}
-		if isNonCode(f) {
-			continue
-		}
-		out[strings.TrimPrefix(f, pkgPrefix)] = true
-	}
-	return out, nil
+	return inNestedSpecDir(repoRel, specPath, specDirs)
 }
 
 // nonCodeDirs are directory names that never constitute package source: test
@@ -222,6 +227,73 @@ func toSet(xs []string) map[string]bool {
 	return m
 }
 
+// typeKey is the lower-cased extension (with leading dot) of a path, or "" if
+// it has none. It classifies a file's type for drift scoping: "logo.PNG" ->
+// ".png", "Makefile" -> "".
+func typeKey(p string) string {
+	return strings.ToLower(filepath.Ext(p))
+}
+
+// typeKeys is the set of file-type keys among the declared files. Undocumented
+// reporting is restricted to files whose type the SPEC already declares, so a
+// package's resource files (icons, configs, locales, ...) — of types its # 文件
+// never mentions — are not drift, just outside the declared vocabulary.
+func typeKeys(files []string) map[string]bool {
+	m := map[string]bool{}
+	for _, f := range files {
+		m[typeKey(f)] = true
+	}
+	return m
+}
+
+// classify sorts the net changes since the SPEC's last commit (pkg-dir-relative)
+// into drift and staleness, given the SPEC's declared file set and its type
+// vocabulary:
+//   - Added  (drift): a source-type file (type in vocab) added since sync that
+//     the SPEC does not list. Resource files of unlisted types are ignored.
+//   - Removed (drift): a file deleted since sync that the SPEC still lists.
+//   - Modified (stale): any content change (M), type change (T), or unknown
+//     status — something changed, the SPEC's prose may be stale.
+//
+// A rename (R) splits into its old path (removed if declared) and new path
+// (added if source-type and unlisted); a copy (C) is treated as an add of the
+// new path. Each returned slice is sorted and deduped.
+func classify(changes []NameStatus, declared, vocab map[string]bool) (added, removed, modified []string) {
+	seenAdd, seenRem, seenMod := map[string]bool{}, map[string]bool{}, map[string]bool{}
+	push := func(dst *[]string, seen map[string]bool, s string) {
+		if s == "" || seen[s] {
+			return
+		}
+		seen[s] = true
+		*dst = append(*dst, s)
+	}
+	for _, c := range changes {
+		switch c.Status {
+		case "A", "C":
+			if vocab[typeKey(c.Path)] && !declared[c.Path] {
+				push(&added, seenAdd, c.Path)
+			}
+		case "D":
+			if declared[c.Path] {
+				push(&removed, seenRem, c.Path)
+			}
+		case "R":
+			if declared[c.OldPath] {
+				push(&removed, seenRem, c.OldPath)
+			}
+			if vocab[typeKey(c.Path)] && !declared[c.Path] {
+				push(&added, seenAdd, c.Path)
+			}
+		default: // M, T, and any unknown status -> stale (conservative)
+			push(&modified, seenMod, c.Path)
+		}
+	}
+	sort.Strings(added)
+	sort.Strings(removed)
+	sort.Strings(modified)
+	return added, removed, modified
+}
+
 // inNestedSpecDir reports whether file f lives under a proper subdirectory of
 // specPath's dir that itself contains a SPEC.md (a nested package).
 func inNestedSpecDir(f, specPath string, specDirs map[string]bool) bool {
@@ -238,13 +310,4 @@ func inNestedSpecDir(f, specPath string, specDirs map[string]bool) bool {
 		d = parent
 	}
 	return false
-}
-
-func sortedKeys(m map[string]bool) []string {
-	ks := make([]string, 0, len(m))
-	for k := range m {
-		ks = append(ks, k)
-	}
-	sort.Strings(ks)
-	return ks
 }

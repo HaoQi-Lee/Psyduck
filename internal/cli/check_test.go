@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -20,8 +21,8 @@ func TestRenderReport_DriftAndTiming(t *testing.T) {
 		Packages: []spec.PackageReport{
 			{
 				Package: "pkg", SpecPath: "pkg/SPEC.md", PkgDir: "pkg",
-				ListedButGone: []string{"old.go"},
-				Undocumented:  []string{"new.go"},
+				Added:   []string{"new.go"},
+				Removed: []string{"old.go"},
 				Timing: []spec.TimingHint{{
 					File:     "root.go",
 					FileTime: time.Unix(1_750_000_000, 0),
@@ -33,8 +34,8 @@ func TestRenderReport_DriftAndTiming(t *testing.T) {
 	})
 	out := b.String()
 	require.Contains(t, out, "pkg: NG")
-	require.Contains(t, out, "+ new.go (undocumented)")
-	require.Contains(t, out, "- old.go (missing)")
+	require.Contains(t, out, "+ new.go (added)")
+	require.Contains(t, out, "- old.go (removed)")
 	require.Contains(t, out, "clean: OK")
 	require.Contains(t, out, "~ root.go")
 	require.Contains(t, out, "newer than spec")
@@ -71,10 +72,15 @@ func TestRunCheck_ExitDriftOnDrift(t *testing.T) {
 	dir := t.TempDir()
 	chdir(t, dir)
 	cliGitInit(t, dir)
+	// Commit 1: SPEC lists root.go and old.go; both exist and are in sync.
 	mustWriteFile(t, filepath.Join(dir, "pkg", "root.go"), "package pkg\n")
-	mustWriteFile(t, filepath.Join(dir, "pkg", "new.go"), "package pkg\n")
+	mustWriteFile(t, filepath.Join(dir, "pkg", "old.go"), "package pkg\n")
 	mustWriteFile(t, filepath.Join(dir, "pkg", "SPEC.md"), cliSpecBody)
 	cliCommitAll(t, dir, "init")
+	// Commit 2: add new.go, delete old.go — SPEC untouched -> drift.
+	mustWriteFile(t, filepath.Join(dir, "pkg", "new.go"), "package pkg // new\n")
+	require.NoError(t, os.Remove(filepath.Join(dir, "pkg", "old.go")))
+	cliCommitAll(t, dir, "edit")
 
 	var out bytes.Buffer
 	root := NewRootCmd(&out, &out)
@@ -84,6 +90,8 @@ func TestRunCheck_ExitDriftOnDrift(t *testing.T) {
 	code, _ := ExitCodeFromErr(err)
 	require.Equal(t, ExitDrift, code)
 	require.Contains(t, out.String(), "pkg: NG")
+	require.Contains(t, out.String(), "+ new.go (added)")
+	require.Contains(t, out.String(), "- old.go (removed)")
 }
 
 func TestRunCheck_ExitOKWhenClean(t *testing.T) {

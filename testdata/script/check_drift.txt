@@ -1,19 +1,30 @@
-# drift: old.go listed but gone, new.go undocumented -> exit 1
+# drift: since last sync new.go added and old.go deleted while SPEC untouched -> exit 1
 exec git init
 exec git config user.email t@example.com
 exec git config user.name t
 exec git config commit.gpgsign false
-exec git add -A
+
+# commit 1: SPEC lists root.go + old.go, both present (in sync). Add only these
+# paths so the new.go template stays untracked and out of the anchor tree.
+exec git add pkg/SPEC.md pkg/root.go pkg/old.go
 exec git commit -m init
+
+# commit 2: delete old.go, add new.go (from template); SPEC untouched -> drift.
+exec git rm pkg/old.go
+cp new.go.tmpl pkg/new.go
+exec git add pkg/new.go
+exec git commit -m edit
 
 ! psy check
 stdout 'pkg: NG'
-stdout 'new\.go \(undocumented\)'
-stdout 'old\.go \(missing\)'
+stdout 'new\.go \(added\)'
+stdout 'old\.go \(removed\)'
 
 -- pkg/root.go --
 package pkg
--- pkg/new.go --
+-- pkg/old.go --
+package pkg
+-- new.go.tmpl --
 package pkg
 -- pkg/SPEC.md --
 ---
@@ -23,4 +34,4 @@ package: pkg
 # 文件
 
 - `root.go` — r
-- `old.go` — gone
+- `old.go` — o
