@@ -109,3 +109,50 @@ func TestRunCheck_ExitOKWhenClean(t *testing.T) {
 	require.NoError(t, root.Execute())
 	require.Contains(t, out.String(), "pkg: OK")
 }
+
+func TestRunCheck_ExitInternalOutsideGit(t *testing.T) {
+	dir := t.TempDir()
+	chdir(t, dir)
+	// Not a git repository -> RepoRoot fails -> ExitInternal(70).
+	var out bytes.Buffer
+	root := NewRootCmd(&out, &out)
+	root.SetArgs([]string{"check"})
+	err := root.Execute()
+	require.Error(t, err)
+	code, _ := ExitCodeFromErr(err)
+	require.Equal(t, ExitInternal, code)
+}
+
+func TestRenderReport_Empty(t *testing.T) {
+	var b bytes.Buffer
+	renderReport(&b, spec.Report{})
+	out := b.String()
+	require.Contains(t, out, "summary: 0 drift, 0 stale")
+	require.Len(t, strings.Split(strings.TrimRight(out, "\n"), "\n"), 1)
+}
+
+func TestRenderReport_SpecUntracked(t *testing.T) {
+	var b bytes.Buffer
+	renderReport(&b, spec.Report{
+		Packages: []spec.PackageReport{{PkgDir: "pkg", SpecUntracked: true}},
+	})
+	out := b.String()
+	require.Contains(t, out, "pkg: OK")
+	require.Contains(t, out, "SPEC.md not committed (skipped)")
+}
+
+func TestRenderReport_TimingDaysRounding(t *testing.T) {
+	var b bytes.Buffer
+	base := time.Unix(1_700_000_000, 0)
+	renderReport(&b, spec.Report{
+		Packages: []spec.PackageReport{
+			{PkgDir: "pkg", Timing: []spec.TimingHint{
+				{File: "alpha.go", FileTime: base.Add(23 * time.Hour), SpecTime: base}, // 23h -> 0d
+				{File: "zeta.go", FileTime: base.Add(25 * time.Hour), SpecTime: base},  // 25h -> 1d
+			}},
+		},
+	})
+	out := b.String()
+	require.Contains(t, out, "alpha.go (0d newer than spec)")
+	require.Contains(t, out, "zeta.go (1d newer than spec)")
+}

@@ -1,0 +1,28 @@
+# SPEC.md staged but never committed (no commit touches it) -> skipped, exit 0
+exec git init
+exec git config user.email t@example.com
+exec git config user.name t
+exec git config commit.gpgsign false
+
+# commit root.go only (SPEC.md left out of the commit)
+exec git add pkg/root.go
+exec git commit -m init
+
+# now stage SPEC.md: ls-files lists it, but no commit touches it -> SpecUntracked
+exec git add pkg/SPEC.md
+
+psy check
+stdout 'pkg: OK'
+stdout 'SPEC.md not committed \(skipped\)'
+stdout 'summary: 0 drift, 0 stale'
+
+-- pkg/root.go --
+package pkg
+-- pkg/SPEC.md --
+---
+package: pkg
+---
+
+# 文件
+
+- `root.go` — r

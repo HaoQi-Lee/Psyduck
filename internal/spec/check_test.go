@@ -224,6 +224,24 @@ func TestCheck_TimingHint(t *testing.T) {
 	require.Equal(t, 0, rep.DriftCount())
 }
 
+func TestCheck_ModifiedFileNoCommitTime(t *testing.T) {
+	// A modified file whose LastCommitTime returns ok=false (no history) is
+	// silently skipped — no Timing entry, no error.
+	root := t.TempDir()
+	writeSpec(t, root, "pkg", "pkg", "- `root.go` — r\n")
+	writeFile(t, filepath.Join(root, "pkg", "root.go"), "package pkg\n")
+	v := &fakeVCS{
+		files:   map[string][]string{"": {"pkg/SPEC.md"}},
+		commits: map[string]string{"pkg/SPEC.md": "c1"},
+		diffs:   map[string][]NameStatus{"pkg": {{Status: "M", Path: "pkg/root.go"}}},
+		times:   map[string]time.Time{"pkg/SPEC.md": time.Unix(1_700_000_000, 0)}, // root.go absent -> ok=false
+	}
+	rep, err := checkWith(root, v)
+	require.NoError(t, err)
+	require.Empty(t, rep.Packages[0].Timing)
+	require.False(t, rep.Packages[0].HasDrift())
+}
+
 func TestCheck_SpecUntracked(t *testing.T) {
 	root := t.TempDir()
 	writeSpec(t, root, "pkg", "pkg", "- `root.go` — r\n")
@@ -329,6 +347,196 @@ func TestCheck_NonCodeDirsExcluded(t *testing.T) {
 	require.NoError(t, err)
 	pr := rep.Packages[0]
 	require.Empty(t, pr.Added, "non-code dirs must be excluded")
+	require.Empty(t, pr.Timing)
+	require.False(t, pr.HasDrift())
+}
+
+func TestCheck_MultiPackageMixedStates(t *testing.T) {
+	root := t.TempDir()
+	// pkgA clean; pkgB drift (added); pkgC stale (modified); pkgD untracked SPEC.
+	writeSpec(t, root, "pkgA", "pkgA", "- `a.go` — a\n")
+	writeFile(t, filepath.Join(root, "pkgA", "a.go"), "package pkgA\n")
+	writeSpec(t, root, "pkgB", "pkgB", "- `b.go` — b\n")
+	writeFile(t, filepath.Join(root, "pkgB", "b.go"), "package pkgB\n")
+	writeSpec(t, root, "pkgC", "pkgC", "- `c.go` — c\n")
+	writeFile(t, filepath.Join(root, "pkgC", "c.go"), "package pkgC\n")
+	writeSpec(t, root, "pkgD", "pkgD", "- `d.go` — d\n")
+	writeFile(t, filepath.Join(root, "pkgD", "d.go"), "package pkgD\n")
+	v := &fakeVCS{
+		files: map[string][]string{"": {"pkgA/SPEC.md", "pkgB/SPEC.md", "pkgC/SPEC.md", "pkgD/SPEC.md"}},
+		commits: map[string]string{"pkgA/SPEC.md": "a", "pkgB/SPEC.md": "b", "pkgC/SPEC.md": "c"},
+		diffs: map[string][]NameStatus{
+			"pkgB": {{Status: "A", Path: "pkgB/new.go"}},
+			"pkgC": {{Status: "M", Path: "pkgC/c.go"}},
+		},
+		times: map[string]time.Time{
+			"pkgC/SPEC.md": time.Unix(1_700_000_000, 0),
+			"pkgC/c.go":    time.Unix(1_710_000_000, 0),
+		},
+	}
+	rep, err := checkWith(root, v)
+	require.NoError(t, err)
+	require.Len(t, rep.Packages, 4)
+	byDir := map[string]PackageReport{}
+	for _, p := range rep.Packages {
+		byDir[p.PkgDir] = p
+	}
+	require.False(t, byDir["pkgA"].HasDrift())
+	require.True(t, byDir["pkgB"].HasDrift())
+	require.Equal(t, []string{"new.go"}, byDir["pkgB"].Added)
+	require.False(t, byDir["pkgC"].HasDrift())
+	require.Len(t, byDir["pkgC"].Timing, 1)
+	require.True(t, byDir["pkgD"].SpecUntracked)
+	require.False(t, byDir["pkgD"].HasDrift())
+	require.Equal(t, 1, rep.DriftCount())
+	require.Equal(t, 1, rep.TimingCount())
+}
+
+func TestCheck_PackagesSortedBySpecPath(t *testing.T) {
+	root := t.TempDir()
+	for _, d := range []string{"zeta", "alpha", "mid"} {
+		writeSpec(t, root, d, d, "- `x.go` — x\n")
+		writeFile(t, filepath.Join(root, d, "x.go"), "package "+d+"\n")
+	}
+	v := &fakeVCS{
+		files:   map[string][]string{"": {"zeta/SPEC.md", "alpha/SPEC.md", "mid/SPEC.md"}},
+		commits: map[string]string{"zeta/SPEC.md": "1", "alpha/SPEC.md": "1", "mid/SPEC.md": "1"},
+	}
+	rep, err := checkWith(root, v)
+	require.NoError(t, err)
+	require.Len(t, rep.Packages, 3)
+	require.Equal(t, []string{"alpha", "mid", "zeta"}, []string{
+		rep.Packages[0].PkgDir, rep.Packages[1].PkgDir, rep.Packages[2].PkgDir,
+	})
+}
+
+func TestCheck_PackageMismatchAndDriftCoexist(t *testing.T) {
+	root := t.TempDir()
+	writeSpec(t, root, "pkg", "wrong/path", "- `root.go` — r\n")
+	writeFile(t, filepath.Join(root, "pkg", "root.go"), "package pkg\n")
+	v := &fakeVCS{
+		files:   map[string][]string{"": {"pkg/SPEC.md"}},
+		commits: map[string]string{"pkg/SPEC.md": "c1"},
+		diffs:   map[string][]NameStatus{"pkg": {{Status: "A", Path: "pkg/new.go"}}},
+	}
+	rep, err := checkWith(root, v)
+	require.NoError(t, err)
+	pr := rep.Packages[0]
+	require.True(t, pr.PackageMismatch)
+	require.Equal(t, []string{"new.go"}, pr.Added)
+	require.True(t, pr.HasDrift())
+}
+
+func TestCheck_MissingFilesSectionBeforeAnchor(t *testing.T) {
+	root := t.TempDir()
+	writeSpec(t, root, "pkg", "pkg", "") // no # 文件
+	writeFile(t, filepath.Join(root, "pkg", "root.go"), "package pkg\n")
+	// SPEC is also untracked, but MissingFileSection returns before the anchor
+	// lookup, so SpecUntracked must stay false.
+	v := &fakeVCS{
+		files:   map[string][]string{"": {"pkg/SPEC.md"}},
+		commits: map[string]string{},
+	}
+	rep, err := checkWith(root, v)
+	require.NoError(t, err)
+	pr := rep.Packages[0]
+	require.True(t, pr.MissingFileSection)
+	require.False(t, pr.SpecUntracked, "MissingFileSection returns before the anchor check")
+	require.True(t, pr.HasDrift())
+}
+
+func TestCheck_DeepNestedPackages(t *testing.T) {
+	root := t.TempDir()
+	writeSpec(t, root, "pkg", "pkg", "- `top.go` — t\n")
+	writeFile(t, filepath.Join(root, "pkg", "top.go"), "package pkg\n")
+	writeSpec(t, root, "pkg/mid", "pkg/mid", "- `mid.go` — m\n")
+	writeFile(t, filepath.Join(root, "pkg", "mid", "mid.go"), "package mid\n")
+	writeSpec(t, root, "pkg/mid/leaf", "pkg/mid/leaf", "- `leaf.go` — l\n")
+	writeFile(t, filepath.Join(root, "pkg", "mid", "leaf", "leaf.go"), "package leaf\n")
+	v := &fakeVCS{
+		files:   map[string][]string{"": {"pkg/SPEC.md", "pkg/mid/SPEC.md", "pkg/mid/leaf/SPEC.md"}},
+		commits: map[string]string{"pkg/SPEC.md": "1", "pkg/mid/SPEC.md": "2", "pkg/mid/leaf/SPEC.md": "3"},
+		diffs: map[string][]NameStatus{
+			"pkg":          {{Status: "A", Path: "pkg/mid/leaf/leaf.go"}},
+			"pkg/mid":      {{Status: "A", Path: "pkg/mid/leaf/leaf.go"}},
+			"pkg/mid/leaf": {},
+		},
+	}
+	rep, err := checkWith(root, v)
+	require.NoError(t, err)
+	require.Len(t, rep.Packages, 3)
+	byDir := map[string]PackageReport{}
+	for _, p := range rep.Packages {
+		byDir[p.PkgDir] = p
+	}
+	require.Empty(t, byDir["pkg"].Added, "top must not see deeply nested files")
+	require.Empty(t, byDir["pkg/mid"].Added, "mid must not see leaf files")
+	require.False(t, byDir["pkg/mid/leaf"].HasDrift())
+}
+
+func TestCheck_ModifiedAtSpecTimeNotStale(t *testing.T) {
+	root := t.TempDir()
+	writeSpec(t, root, "pkg", "pkg", "- `root.go` — r\n")
+	writeFile(t, filepath.Join(root, "pkg", "root.go"), "package pkg\n")
+	// root.go last commit time == spec commit time; strict After -> not stale.
+	same := time.Unix(1_700_000_000, 0)
+	v := &fakeVCS{
+		files:   map[string][]string{"": {"pkg/SPEC.md"}},
+		commits: map[string]string{"pkg/SPEC.md": "c1"},
+		diffs:   map[string][]NameStatus{"pkg": {{Status: "M", Path: "pkg/root.go"}}},
+		times:   map[string]time.Time{"pkg/SPEC.md": same, "pkg/root.go": same},
+	}
+	rep, err := checkWith(root, v)
+	require.NoError(t, err)
+	require.Empty(t, rep.Packages[0].Timing, "file commit == spec commit (not strictly after) -> not stale")
+}
+
+func TestCheck_TimingSortedByFile(t *testing.T) {
+	root := t.TempDir()
+	writeSpec(t, root, "pkg", "pkg", "- `a.go` — a\n")
+	writeFile(t, filepath.Join(root, "pkg", "a.go"), "package pkg\n")
+	specT := time.Unix(1_700_000_000, 0)
+	v := &fakeVCS{
+		files:   map[string][]string{"": {"pkg/SPEC.md"}},
+		commits: map[string]string{"pkg/SPEC.md": "c1"},
+		diffs: map[string][]NameStatus{"pkg": {
+			{Status: "M", Path: "pkg/zeta.go"},
+			{Status: "M", Path: "pkg/alpha.go"},
+			{Status: "M", Path: "pkg/mid.go"},
+		}},
+		times: map[string]time.Time{
+			"pkg/SPEC.md":  specT,
+			"pkg/zeta.go":  specT.Add(time.Hour),
+			"pkg/alpha.go": specT.Add(time.Hour),
+			"pkg/mid.go":   specT.Add(time.Hour),
+		},
+	}
+	rep, err := checkWith(root, v)
+	require.NoError(t, err)
+	var files []string
+	for _, th := range rep.Packages[0].Timing {
+		files = append(files, th.File)
+	}
+	require.Equal(t, []string{"alpha.go", "mid.go", "zeta.go"}, files)
+}
+
+func TestCheck_SpecItselfInDiffFiltered(t *testing.T) {
+	root := t.TempDir()
+	// SPEC declares .md (via skills/embed.md), so SPEC.md's own .md type IS in
+	// vocab — only isExcluded (== specPath) keeps it out of stale/drift.
+	writeSpec(t, root, "pkg", "pkg", "- `root.go` — r\n- `skills/embed.md` — e\n")
+	writeFile(t, filepath.Join(root, "pkg", "root.go"), "package pkg\n")
+	v := &fakeVCS{
+		files:   map[string][]string{"": {"pkg/SPEC.md"}},
+		commits: map[string]string{"pkg/SPEC.md": "c1"},
+		diffs:   map[string][]NameStatus{"pkg": {{Status: "M", Path: "pkg/SPEC.md"}}},
+		times:   map[string]time.Time{"pkg/SPEC.md": time.Unix(1_700_000_000, 0)},
+	}
+	rep, err := checkWith(root, v)
+	require.NoError(t, err)
+	pr := rep.Packages[0]
+	require.Empty(t, pr.Added)
+	require.Empty(t, pr.Removed)
 	require.Empty(t, pr.Timing)
 	require.False(t, pr.HasDrift())
 }

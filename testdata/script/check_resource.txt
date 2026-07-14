@@ -1,0 +1,31 @@
+# resource file added since sync (type outside SPEC vocab) is not drift -> exit 0
+exec git init
+exec git config user.email t@example.com
+exec git config user.name t
+exec git config commit.gpgsign false
+
+# commit 1: SPEC lists root.go (.go); root.go present (in sync)
+exec git add pkg/SPEC.md pkg/root.go
+exec git commit -m init
+
+# commit 2: add a resource file (.png, not in SPEC's .go vocabulary); SPEC untouched
+cp logo.png.tmpl pkg/logo.png
+exec git add pkg/logo.png
+exec git commit -m add-resource
+
+psy check
+stdout 'pkg: OK'
+stdout 'summary: 0 drift, 0 stale'
+
+-- pkg/root.go --
+package pkg
+-- logo.png.tmpl --
+PNG-data
+-- pkg/SPEC.md --
+---
+package: pkg
+---
+
+# 文件
+
+- `root.go` — r

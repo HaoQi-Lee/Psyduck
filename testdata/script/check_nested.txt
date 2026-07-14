@@ -1,0 +1,43 @@
+# nested package: a new file in the child subtree is the child's drift, not the parent's
+exec git init
+exec git config user.email t@example.com
+exec git config user.name t
+exec git config commit.gpgsign false
+
+# commit 1: parent (pkg) + child (pkg/child), both in sync
+exec git add pkg/SPEC.md pkg/parent.go pkg/child/SPEC.md pkg/child/child.go
+exec git commit -m init
+
+# commit 2: add pkg/child/extra.go. Child drifts; parent must NOT count it.
+cp extra.go.tmpl pkg/child/extra.go
+exec git add pkg/child/extra.go
+exec git commit -m edit
+
+! psy check
+stdout 'pkg: OK'
+stdout 'pkg/child: NG'
+stdout 'extra\.go \(added\)'
+stdout 'summary: 1 drift'
+
+-- pkg/parent.go --
+package pkg
+-- extra.go.tmpl --
+package child
+-- pkg/SPEC.md --
+---
+package: pkg
+---
+
+# 文件
+
+- `parent.go` — p
+-- pkg/child/child.go --
+package child
+-- pkg/child/SPEC.md --
+---
+package: pkg/child
+---
+
+# 文件
+
+- `child.go` — c

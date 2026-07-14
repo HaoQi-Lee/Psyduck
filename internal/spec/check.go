@@ -252,8 +252,10 @@ func typeKeys(files []string) map[string]bool {
 //   - Added  (drift): a source-type file (type in vocab) added since sync that
 //     the SPEC does not list. Resource files of unlisted types are ignored.
 //   - Removed (drift): a file deleted since sync that the SPEC still lists.
-//   - Modified (stale): any content change (M), type change (T), or unknown
-//     status — something changed, the SPEC's prose may be stale.
+//   - Modified (stale): a content change (M), type change (T), or unknown
+//     status on a source-type file (type in vocab). Resource files of unlisted
+//     types are ignored — symmetric with Added, since the SPEC's prose does not
+//     describe resource content.
 //
 // A rename (R) splits into its old path (removed if declared) and new path
 // (added if source-type and unlisted); a copy (C) is treated as an add of the
@@ -284,8 +286,10 @@ func classify(changes []NameStatus, declared, vocab map[string]bool) (added, rem
 			if vocab[typeKey(c.Path)] && !declared[c.Path] {
 				push(&added, seenAdd, c.Path)
 			}
-		default: // M, T, and any unknown status -> stale (conservative)
-			push(&modified, seenMod, c.Path)
+		default: // M, T, and any unknown status -> stale, but only for source types
+			if vocab[typeKey(c.Path)] {
+				push(&modified, seenMod, c.Path)
+			}
 		}
 	}
 	sort.Strings(added)

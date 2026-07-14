@@ -51,11 +51,11 @@ git 永远返回正斜杠路径。切分 git 返回的字符串必须用 `path` 
 
 ## 漂移语义（基于变更）
 
-检测以每个 `SPEC.md` 的**最近一次提交**为锚点（`LastCommit`，`git log -1 --format=%H`），用 `DiffNameStatus(anchor, pkgDir)`（`git diff --no-renames --name-status <anchor> HEAD -- <pkg>`）取包目录内**自上次同步以来的净变更**，剔除 SPEC.md 自身、含子 SPEC.md 的嵌套包子目录、非代码目录（`isNonCode`）下的条目，重定位为包目录相对后交 `classify` 分类：
+检测以每个 `SPEC.md` 的**最近一次提交**为锚点（`LastCommit`，`git log -1 --format=%H`），用 `DiffNameStatus(anchor, pkgDir)`（`git diff --no-renames --name-status -z <anchor> HEAD -- <pkg>`，`-z` 防 `core.quotepath` 对非 ASCII 路径的 C 转义）取包目录内**自上次同步以来的净变更**，剔除 SPEC.md 自身、含子 SPEC.md 的嵌套包子目录、非代码目录（`isNonCode`）下的条目，重定位为包目录相对后交 `classify` 分类：
 
 - **Added（漂移）**：新增的**源类型**文件（类型属 SPEC 已声明词汇）且 SPEC 未列。资源文件（`*.png`/`*.yaml` 等未声明类型）豁免，见下。
 - **Removed（漂移）**：自同步以来删除、但 SPEC 仍列出的文件。
-- **Modified（stale）**：仅内容修改（`M`）、类型变更（`T`）或未知状态——SPEC 文字可能过期，仅提示，恒不影响退出码。
+- **Modified（stale）**：**源类型**文件的仅内容修改（`M`）、类型变更（`T`）或未知状态——SPEC 文字可能过期，仅提示，恒不影响退出码。资源文件（未声明类型）的修改同样豁免（与 Added 对称：SPEC 文字不描述资源内容）。
 
 `gitVCS` 用 `--no-renames`，故重命名表现为「旧删 + 新增」，与显式 `R` 经 `classify` 得到相同的「removed 旧 + added 新」。`package:` 值与位置不符或缺 `# 文件` 章节亦记为漂移；SPEC 无提交历史（`SpecUntracked`）则跳过检测（不可度量，不算漂移）。
 

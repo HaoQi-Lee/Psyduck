@@ -1,0 +1,43 @@
+# two packages: one drifts (added file), one clean -> summary counts 1 drift
+exec git init
+exec git config user.email t@example.com
+exec git config user.name t
+exec git config commit.gpgsign false
+
+# commit 1: both packages in sync
+exec git add a/SPEC.md a/a.go b/SPEC.md b/b.go
+exec git commit -m init
+
+# commit 2: add a/new.go (package a drifts); package b untouched
+cp new.go.tmpl a/new.go
+exec git add a/new.go
+exec git commit -m edit
+
+! psy check
+stdout 'a: NG'
+stdout 'new\.go \(added\)'
+stdout 'b: OK'
+stdout 'summary: 1 drift'
+
+-- a/a.go --
+package a
+-- new.go.tmpl --
+package a
+-- a/SPEC.md --
+---
+package: a
+---
+
+# 文件
+
+- `a.go` — a
+-- b/b.go --
+package b
+-- b/SPEC.md --
+---
+package: b
+---
+
+# 文件
+
+- `b.go` — b

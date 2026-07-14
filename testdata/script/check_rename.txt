@@ -1,0 +1,30 @@
+# rename: --no-renames reports delete + add -> drift on both old and new
+exec git init
+exec git config user.email t@example.com
+exec git config user.name t
+exec git config commit.gpgsign false
+
+# commit 1: SPEC lists old.go; old.go present (in sync)
+exec git add pkg/SPEC.md pkg/old.go
+exec git commit -m init
+
+# commit 2: rename old.go -> new.go (same content); SPEC untouched.
+# --no-renames => D old.go (still listed) + A new.go (source type, unlisted).
+exec git mv pkg/old.go pkg/new.go
+exec git commit -m rename
+
+! psy check
+stdout 'pkg: NG'
+stdout 'old\.go \(removed\)'
+stdout 'new\.go \(added\)'
+
+-- pkg/old.go --
+package pkg
+-- pkg/SPEC.md --
+---
+package: pkg
+---
+
+# 文件
+
+- `old.go` — o

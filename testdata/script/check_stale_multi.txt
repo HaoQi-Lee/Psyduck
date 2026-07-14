@@ -1,0 +1,42 @@
+# two source files modified since sync -> two stale hints, exit 0
+exec git init
+exec git config user.email t@example.com
+exec git config user.name t
+exec git config commit.gpgsign false
+
+env GIT_AUTHOR_DATE=2026-06-05T00:00:00
+env GIT_COMMITTER_DATE=2026-06-05T00:00:00
+exec git add pkg/SPEC.md pkg/a.go pkg/b.go
+exec git commit -m init
+
+cp a.go.changed pkg/a.go
+cp b.go.changed pkg/b.go
+exec git add -A
+env GIT_AUTHOR_DATE=2026-07-01T00:00:00
+env GIT_COMMITTER_DATE=2026-07-01T00:00:00
+exec git commit -m edit
+
+psy check
+stdout '~ a.go'
+stdout '~ b.go'
+stdout 'summary: 0 drift, 2 stale'
+
+-- pkg/a.go --
+package pkg
+-- a.go.changed --
+package pkg
+// a changed
+-- pkg/b.go --
+package pkg
+-- b.go.changed --
+package pkg
+// b changed
+-- pkg/SPEC.md --
+---
+package: pkg
+---
+
+# 文件
+
+- `a.go` — a
+- `b.go` — b

@@ -86,3 +86,57 @@ func TestGitVCS_LastCommitAndDiff(t *testing.T) {
 	require.Equal(t, "D", byPath["pkg/gone.go"], "gone.go deleted since sync")
 	require.Equal(t, "M", byPath["pkg/keep.go"], "keep.go modified since sync")
 }
+
+func TestGitVCS_NonASCIIPathNotEscaped(t *testing.T) {
+	// git quotes non-ASCII paths (core.quotepath=true default) as C-style
+	// octal escapes unless -z is used. Both ListFiles and DiffNameStatus must
+	// return clean UTF-8 paths.
+	root := t.TempDir()
+	initGitRepo(t, root)
+	writeFile(t, filepath.Join(root, "pkg", "keep.go"), "package pkg\n")
+	writeFile(t, filepath.Join(root, "pkg", "中文.go"), "package pkg\n")
+	commitAllAt(t, root, "init", "2026-06-05T00:00:00")
+
+	v := newGitVCS(root)
+
+	all, err := v.ListFiles("pkg")
+	require.NoError(t, err)
+	require.Contains(t, all, "pkg/中文.go", "ListFiles must not C-quote non-ASCII paths")
+
+	anchor, ok, err := v.LastCommit("pkg/keep.go") // keep.go touched only at init
+	require.NoError(t, err)
+	require.True(t, ok)
+
+	writeFile(t, filepath.Join(root, "pkg", "新增.go"), "package pkg\n")
+	commitAllAt(t, root, "edit", "2026-07-01T00:00:00")
+
+	changes, err := v.DiffNameStatus(anchor, "pkg")
+	require.NoError(t, err)
+	var paths []string
+	for _, c := range changes {
+		paths = append(paths, c.Path)
+	}
+	require.Contains(t, paths, "pkg/新增.go", "DiffNameStatus must not C-quote non-ASCII paths")
+}
+
+func TestParseNameStatus(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want []NameStatus
+	}{
+		{"empty", "", nil},
+		{"single add", "A\x00pkg/a.go\x00", []NameStatus{{Status: "A", Path: "pkg/a.go"}}},
+		{"mixed add mod del", "A\x00a.go\x00M\x00b.go\x00D\x00c.go\x00", []NameStatus{
+			{Status: "A", Path: "a.go"}, {Status: "M", Path: "b.go"}, {Status: "D", Path: "c.go"},
+		}},
+		{"no trailing NUL", "A\x00a.go", []NameStatus{{Status: "A", Path: "a.go"}}},
+		{"score stripped (defensive)", "R100\x00new.go\x00", []NameStatus{{Status: "R", Path: "new.go"}}},
+		{"only NULs", "\x00\x00", nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			require.Equal(t, c.want, parseNameStatus(c.in))
+		})
+	}
+}

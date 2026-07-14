@@ -54,7 +54,8 @@ type gitVCS struct{ root string }
 func newGitVCS(root string) VCS { return &gitVCS{root: root} }
 
 func (g *gitVCS) ListFiles(relDir string) ([]string, error) {
-	args := []string{"ls-files"}
+	// -z: NUL-separated, no core.quotepath C-style quoting of non-ASCII paths.
+	args := []string{"ls-files", "-z"}
 	if relDir != "" {
 		args = append(args, relDir)
 	}
@@ -63,9 +64,9 @@ func (g *gitVCS) ListFiles(relDir string) ([]string, error) {
 		return nil, err
 	}
 	var files []string
-	for _, line := range strings.Split(string(out), "\n") {
-		if line = strings.TrimSpace(line); line != "" {
-			files = append(files, filepath.ToSlash(line))
+	for _, p := range strings.Split(string(out), "\x00") {
+		if p != "" {
+			files = append(files, filepath.ToSlash(p))
 		}
 	}
 	return files, nil
@@ -103,34 +104,29 @@ func (g *gitVCS) DiffNameStatus(fromCommit, relDir string) ([]NameStatus, error)
 	// --no-renames: a rename is reported as a delete + add, which classify maps
 	// to the same drift (removed old + added new) as an explicit R would. This
 	// keeps the status alphabet stable at A/D/M/T and the output deterministic.
-	out, err := runGit(g.root, "diff", "--no-renames", "--name-status", fromCommit, "HEAD", "--", relDir)
+	// -z: NUL-separated, no core.quotepath C-style quoting of non-ASCII paths.
+	out, err := runGit(g.root, "diff", "--no-renames", "--name-status", "-z", fromCommit, "HEAD", "--", relDir)
 	if err != nil {
 		return nil, err
 	}
 	return parseNameStatus(string(out)), nil
 }
 
-// parseNameStatus parses `git diff --name-status` output into NameStatus
-// entries. Each line is "<code>[\t<old>]\t<new>"; a rename/copy carries both
-// paths, any other status a single path. Trailing CR is trimmed per line.
+// parseNameStatus parses `git diff --name-status -z` output. With -z the output
+// is NUL-separated and (because gitVCS forces --no-renames) every record is a
+// (status, path) pair — no R/C three-field records. A trailing NUL yields a
+// final empty field, which is skipped.
 func parseNameStatus(s string) []NameStatus {
 	var out []NameStatus
-	for _, line := range strings.Split(s, "\n") {
-		if line = strings.TrimRight(line, "\r"); line == "" {
+	fields := strings.Split(s, "\x00")
+	for i := 0; i+1 < len(fields); i += 2 {
+		if fields[i] == "" {
 			continue
 		}
-		fields := strings.Split(line, "\t")
-		if len(fields) < 2 {
-			continue
-		}
-		ns := NameStatus{Status: stripDiffScore(fields[0])}
-		if len(fields) >= 3 {
-			ns.OldPath = filepath.ToSlash(fields[1])
-			ns.Path = filepath.ToSlash(fields[2])
-		} else {
-			ns.Path = filepath.ToSlash(fields[1])
-		}
-		out = append(out, ns)
+		out = append(out, NameStatus{
+			Status: stripDiffScore(fields[i]),
+			Path:   filepath.ToSlash(fields[i+1]),
+		})
 	}
 	return out
 }

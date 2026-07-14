@@ -58,6 +58,19 @@ func TestClassify(t *testing.T) {
 			modified: []string{"root.go"},
 		},
 		{
+			name:     "modified resource type -> ignored (vocab-scoped, symmetric with Added)",
+			changes:  []NameStatus{{Status: "M", Path: "assets/logo.png"}},
+			declared: map[string]bool{"root.go": true},
+			vocab:    goVocab,
+		},
+		{
+			name:     "modified source type not declared -> still stale",
+			changes:  []NameStatus{{Status: "M", Path: "root.go"}},
+			declared: map[string]bool{},
+			vocab:    goVocab,
+			modified: []string{"root.go"},
+		},
+		{
 			name:     "rename: old removed + new added",
 			changes:  []NameStatus{{Status: "R", OldPath: "a.go", Path: "b.go"}},
 			declared: map[string]bool{"a.go": true},
@@ -99,6 +112,52 @@ func TestClassify(t *testing.T) {
 			declared: map[string]bool{"weird.go": true},
 			vocab:    goVocab,
 			modified: []string{"weird.go"},
+		},
+		{
+			name:     "empty input",
+			changes:  nil,
+			declared: map[string]bool{"root.go": true},
+			vocab:    goVocab,
+		},
+		{
+			name:    "dedup duplicate entries",
+			changes: []NameStatus{
+				{Status: "A", Path: "new.go"},
+				{Status: "A", Path: "new.go"},
+				{Status: "M", Path: "root.go"},
+				{Status: "M", Path: "root.go"},
+			},
+			declared: map[string]bool{"root.go": true},
+			vocab:    goVocab,
+			added:    []string{"new.go"},
+			modified: []string{"root.go"},
+		},
+		{
+			name:     "uppercase extension lowercased for vocab match",
+			changes:  []NameStatus{{Status: "A", Path: "FOO.GO"}},
+			declared: map[string]bool{},
+			vocab:    goVocab, // {.go}
+			added:    []string{"FOO.GO"},
+		},
+		{
+			name:     "no-extension vocab: extensionless added, .go ignored",
+			changes:  []NameStatus{{Status: "A", Path: "Makefile"}, {Status: "A", Path: "src.go"}},
+			declared: map[string]bool{"LICENSE": true},
+			vocab:    map[string]bool{"": true},
+			added:    []string{"Makefile"},
+		},
+		{
+			name:     "multi-dot path uses last extension",
+			changes:  []NameStatus{{Status: "A", Path: "archive.tar.gz"}},
+			declared: map[string]bool{"x.gz": true},
+			vocab:    map[string]bool{".gz": true},
+			added:    []string{"archive.tar.gz"},
+		},
+		{
+			name:     "rename to declared new path -> neither added nor removed",
+			changes:  []NameStatus{{Status: "R", OldPath: "x.go", Path: "y.go"}},
+			declared: map[string]bool{"y.go": true},
+			vocab:    goVocab,
 		},
 		{
 			name: "mixed, results sorted",
