@@ -5,10 +5,11 @@ description: Sync SPEC.md files for the packages affected by the current change 
 
 # Syncing Specs & Archiving Design Docs
 
-This skill closes out a unit of work by reconciling two things with reality:
+This skill closes out a unit of work by reconciling three things with reality:
 
 - `SPEC.md` for every package the work touched.
 - `.psy/` archive for every design / implementation doc the work produced.
+- `README.md` at the repository root — its code-derived facts reconciled to the change set.
 
 ## When to Use
 
@@ -82,19 +83,47 @@ For each doc to archive:
 3. Ensure `.psy/` exists; create it if missing.
 4. Move the file with `git mv` so history is preserved. The source path **must** be vacated — this is an archive, not a copy.
 
+## Step 5 — Sync the repo-root README.md
+
+`README.md` at the repository root drifts like any other doc: commands gain flags, the directory layout shifts, build commands change, a skill gains a step. Reconcile its **code-derived facts** against the change set — the same "document reality" discipline as `SPEC.md`, applied to one repo-level file.
+
+**Target:** the single `README.md` at the repository root. Nested package READMEs are out of scope (those packages own a `SPEC.md`). If the repo has no root `README.md`, skip this step and tell the user.
+
+**Scope = the change set** (the set from Step 1). Reconcile only the README sections whose source-of-truth lies inside the change set:
+
+- CLI commands, flags, exit codes ← command source (`cmd/`, `internal/cli/`, …)
+- Directory structure / project layout ← the actual tree
+- Build & test commands ← `Makefile` / scripts / manifest
+- Dependencies / tech stack ← manifest + lockfile
+- Skill / subcommand reference ← the skill files themselves
+- any other section whose content is mechanically derived from code or config
+
+For each in-scope section:
+
+1. Read the **current** code/config to ground the change — not the plan, the code.
+2. Fix facts that went stale (changed flags, renamed dirs, new build target, …).
+3. If the change set **added** code surface that belongs in this section, add a terse, voice-neutral entry that **mirrors the section's existing structure** (a new command gets a sub-section shaped like its siblings). Do **not** invent new top-level sections.
+4. Keep edits minimal: leave well-formed prose that matches reality untouched.
+
+**Never rewrite editorial prose** — the intro, taglines, "why this exists", design philosophy, tone. That is the author's voice, not a machine-derived fact. Override it only when the change set makes it **factually wrong**.
+
+If no in-scope section is affected (the change set touched nothing the README reflects), this step is a no-op — do not force edits.
+
 ## Rules
 
 - **Document reality, not intent.** Never write aspirational SPEC.md content.
 - **Archive is move, not copy.** The source path is vacated.
 - **Do not archive implementation plans.** superpowers plan files (under `docs/superpowers/plans/`) are execution artifacts, not design docs — never move them into `.psy/`. Only design/spec docs from `docs/superpowers/specs/` are archived.
 - **Stay scoped.** If the change set is empty, surface that to the user — never expand to a full-repo scan.
+- **README sync is factual, not a rewrite.** Only code-derived facts are reconciled; editorial prose is preserved; new entries mirror an existing section's structure only.
 - **Never skip after `executing-plans`.** This is the close-out step that keeps the spec/archive contract intact.
 
 ## Key Principle
 
-When implementation work concludes, two artifacts must settle:
+When implementation work concludes, three artifacts must settle:
 
 - `SPEC.md` — the always-current truth about each package the work touched.
 - `.psy/` — the archive of what was decided and what was built.
+- `README.md` — the repo-root public doc, its code-derived facts reconciled to the change set.
 
-`/psy-sync` performs both in one pass, scoped to the work being closed out.
+`/psy-sync` performs all three in one pass, scoped to the work being closed out.

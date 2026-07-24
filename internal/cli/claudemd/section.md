@@ -15,5 +15,6 @@ This project uses [psyduck](https://github.com/psyduck/psyduck) for spec lifecyc
 
 - **Generate / update `SPEC.md`** for every code package affected by the current change set. The change set is inferred from context: the plan that just executed, the working tree, recent edits — never hardcoded against a specific base branch.
 - **Archive design docs** produced by this work (typically under `docs/superpowers/specs/`) into `.psy/YYYY-MM-DD/<doc-name>.md`. Move with `git mv`, don't copy. Append `-2`, `-3`, ... on name collision.
+- **Sync the repo-root `README.md`** to the change set: reconcile code-derived facts (commands, flags, exit codes, directory layout, build/test commands, dependencies, skill reference) and add terse entries mirroring existing structure for newly added surface. Editorial prose is preserved.
 
 See the `/psy-sync` skill for the full procedure.
