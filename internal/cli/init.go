@@ -30,23 +30,30 @@ func newInitCmd() *cobra.Command {
 				return err
 			}
 			// install-plugins runs independently of init so it works on
-			// already-initialized repos too.
+			// already-initialized repos too. When set, init tolerates an
+			// existing .psy so the flag can be re-run purely to refresh skills.
 			if installPlugins {
 				if err := installPluginsToHome(cmd); err != nil {
 					return err
 				}
 			}
-			return runInit(cmd, dir)
+			return runInit(cmd, dir, installPlugins)
 		},
 	}
 	cmd.Flags().BoolVar(&installPlugins, "install-plugins", false, "install skills globally to ~/.claude/skills/<name>/SKILL.md (slash-command form)")
 	return cmd
 }
 
-func runInit(cmd *cobra.Command, dir string) error {
+func runInit(cmd *cobra.Command, dir string, tolerateExisting bool) error {
 	psyDir := filepath.Join(dir, ".psy")
 	if _, err := os.Stat(psyDir); err == nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "init: already initialized at %s\n", psyDir)
+		if tolerateExisting {
+			// Allow re-running `init --install-plugins` on an already-initialized
+			// repo to refresh global skills without erroring out.
+			fmt.Fprintf(cmd.OutOrStdout(), ".psy already initialized at %s\n", psyDir)
+			return nil
+		}
+		// Don't print here: main renders command errors once as "psy: <msg>".
 		return fmt.Errorf("init: already initialized at %s", psyDir)
 	} else if !os.IsNotExist(err) {
 		return err
@@ -116,8 +123,8 @@ func installPluginsToHome(cmd *cobra.Command) error {
 
 // installPluginsToDir writes embedded skill files to
 // <baseDir>/.claude/skills/<name>/SKILL.md so Claude Code discovers them as
-// /slash commands. Existing directories are skipped so user customisations are
-// never overwritten.
+// /slash commands. Existing files are overwritten so re-running with
+// --install-plugins refreshes the installed skills.
 func installPluginsToDir(cmd *cobra.Command, baseDir string) error {
 	targetBase := filepath.Join(baseDir, ".claude", "skills")
 	if err := os.MkdirAll(targetBase, 0o755); err != nil {
@@ -130,19 +137,12 @@ func installPluginsToDir(cmd *cobra.Command, baseDir string) error {
 	}
 
 	installed := 0
-	skipped := 0
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
 		}
 		name := strings.TrimSuffix(e.Name(), ".md")
 		skillDir := filepath.Join(targetBase, name)
-		if _, err := os.Stat(skillDir); err == nil {
-			skipped++
-			fmt.Fprintf(cmd.OutOrStdout(), "  skipped %s (already exists)\n", name)
-			continue
-		}
-
 		if err := os.MkdirAll(skillDir, 0o755); err != nil {
 			return fmt.Errorf("install-plugins: mkdir %s: %w", name, err)
 		}
@@ -160,9 +160,6 @@ func installPluginsToDir(cmd *cobra.Command, baseDir string) error {
 
 	if installed > 0 {
 		fmt.Fprintf(cmd.OutOrStdout(), "installed %d plugin(s) to %s\n", installed, targetBase)
-	}
-	if skipped > 0 {
-		fmt.Fprintf(cmd.OutOrStdout(), "skipped %d (already exists)\n", skipped)
 	}
 	return nil
 }

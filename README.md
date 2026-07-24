@@ -31,13 +31,13 @@ psy init [--install-plugins]
 
 | Flag | Description |
 |---|---|
-| `--install-plugins` | 把内置 skill 安装到 `~/.claude/skills/<name>/SKILL.md`（全局 `/` 斜杠命令）。已有同名目录会跳过，不覆盖用户自定义 |
+| `--install-plugins` | 覆盖安装内置 skill 到 `~/.claude/skills/<name>/SKILL.md`（全局 `/` 斜杠命令）。`.psy` 已存在时不报错，可重复运行刷新 skill |
 
 ```bash
 # 最小初始化（只建 .psy/ + 更新 CLAUDE.md）
 psy init
 
-# 同时安装全局 /slash 命令
+# 安装/刷新全局 /slash 命令（覆盖已安装 skill；可重复运行）
 psy init --install-plugins
 ```
 
@@ -112,6 +112,7 @@ psy check
 | 2 | 按代码包分组：Go package / JS/TS 模块 / Python package / Rust crate 等 |
 | 3 | 对每个包读源码，生成或更新 `SPEC.md`（中文），保持已有 front-matter |
 | 4 | 归档本次变更产生的设计文档（`docs/superpowers/specs/*.md`）到 `.psy/<YYYY-MM-DD>/<basename>.md`，冲突追加 `-2`、`-3`…… |
+| 5 | 同步仓库根 `README.md`：校正代码派生的事实（命令/flag/退出码/目录结构/构建测试命令/依赖/skill 步骤），并按现有结构为新增暴露面补写中性条目；编辑性散文保持不动 |
 
 **核心规则：**
 - 文档现实，不写期望
@@ -135,6 +136,7 @@ psy check
 | 1 | 遍历整个仓库，识别所有代码包 |
 | 2 | 对每个包读源码，生成或更新 `SPEC.md`（中文） |
 | 3 | 归档 `docs/superpowers/specs/` 下所有未归档的文档到 `.psy/<YYYY-MM-DD>/<basename>.md` |
+| 4 | 同步仓库根 `README.md`：按整库现状重新核对所有代码派生章节，修正过时事实并为缺失暴露面按现有结构补写条目 |
 
 首次运行会产生大量 diff，建议批量审查后提交。
 

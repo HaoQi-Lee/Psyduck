@@ -5,7 +5,7 @@ description: Sync SPEC.md across every package in the repository, and archive ev
 
 # Full-Repository Spec Sync & Archive
 
-This skill walks the entire repository, regenerates `SPEC.md` for every code package it finds, and archives every design / implementation doc still sitting under `docs/superpowers/`.
+This skill walks the entire repository, regenerates `SPEC.md` for every code package it finds, archives every design / implementation doc still sitting under `docs/superpowers/`, and reconciles the repo-root `README.md` with the current codebase.
 
 ## When to Use
 
@@ -72,9 +72,20 @@ For each doc:
 3. Ensure `.psy/` exists; create it if missing.
 4. Move with `git mv` so history is preserved. The source path **must** be vacated.
 
+## Step 4 — Sync the repo-root README.md
+
+Bring the repo-root `README.md` fully up to date with the **entire codebase** — a deliberate full pass, not scoped to any change set. Same target, same factual-vs-editorial rule as `/psy-sync` Step 5, but every code-derived section is re-derived against the current code.
+
+**Target:** the single `README.md` at the repository root. Skip if absent; tell the user.
+
+For every code-derived section — CLI commands/flags/exit codes, directory structure, build & test commands, dependencies / tech stack, skill / subcommand reference, and any other mechanically-derived section — read the current code, fix every stale fact, and add a terse entry mirroring the section's existing structure for any code surface the README is missing.
+
+**Never rewrite editorial prose** (intro, taglines, design philosophy, tone) unless it is factually wrong. Keep edits minimal — converge on truth, not churn.
+
 ## Rules
 
 - **Document reality, not intent.** Never write aspirational SPEC.md content.
+- **README sync is factual, not a rewrite.** Only code-derived facts are reconciled; editorial prose is preserved; new entries mirror an existing section's structure only.
 - **Archive is move, not copy.** The source path is vacated.
 - **Do not archive implementation plans.** superpowers plan files (under `docs/superpowers/plans/`) are execution artifacts, not design docs — never move them into `.psy/`. Only design/spec docs from `docs/superpowers/specs/` are archived.
 - **Manual only.** This skill is never auto-invoked.
