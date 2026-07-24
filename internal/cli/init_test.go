@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -96,6 +97,9 @@ func TestInit_RefusesIfAlreadyInitialized(t *testing.T) {
 	err := root.Execute()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "already initialized")
+	// The command must not print the message itself; main renders errors once
+	// as "psy: <msg>". Otherwise it shows up twice on stderr.
+	require.NotContains(t, out.String(), "already initialized")
 }
 
 func TestInit_InstallPlugins_CreatesPluginDirs(t *testing.T) {
@@ -128,7 +132,7 @@ func TestInit_InstallPlugins_CreatesPluginDirs(t *testing.T) {
 	require.Contains(t, out.String(), "installed 2 plugin(s)")
 }
 
-func TestInit_InstallPlugins_SkipsExisting(t *testing.T) {
+func TestInit_InstallPlugins_OverwritesExisting(t *testing.T) {
 	workDir := t.TempDir()
 	chdir(t, workDir)
 
@@ -137,29 +141,49 @@ func TestInit_InstallPlugins_SkipsExisting(t *testing.T) {
 	t.Setenv("HOME", homeDir)
 	t.Setenv("USERPROFILE", homeDir)
 
-	// First run.
+	// First run installs the embedded skills and initializes the repo.
 	var out bytes.Buffer
 	root := NewRootCmd(&out, &out)
 	root.SetArgs([]string{"init", "--install-plugins"})
 	require.NoError(t, root.Execute())
 
-	// Modify one SKILL.md to prove it's NOT overwritten on second run.
+	// Tamper with an installed skill to prove the next run overwrites it.
 	targetPath := filepath.Join(homeDir, ".claude", "skills", "psy-sync", "SKILL.md")
-	require.NoError(t, os.WriteFile(targetPath, []byte("custom content"), 0o644))
+	require.NoError(t, os.WriteFile(targetPath, []byte("stale custom content"), 0o644))
 
-	// Remove .psy so init won't fail with "already initialized".
-	os.RemoveAll(filepath.Join(workDir, ".psy"))
-
-	// Second run.
+	// .psy already exists; --install-plugins must tolerate it and refresh skills.
 	out.Reset()
 	root = NewRootCmd(&out, &out)
 	root.SetArgs([]string{"init", "--install-plugins"})
 	require.NoError(t, root.Execute())
 
-	data, err := os.ReadFile(targetPath)
+	want, err := fs.ReadFile(skillFiles, "skills/psy-sync.md")
 	require.NoError(t, err)
-	require.Equal(t, "custom content", string(data))
-	require.Contains(t, out.String(), "skipped")
+	got, err := os.ReadFile(targetPath)
+	require.NoError(t, err)
+	require.Equal(t, string(want), string(got), "existing skill must be overwritten")
+}
+
+func TestInit_InstallPlugins_ToleratesExistingPsy(t *testing.T) {
+	workDir := t.TempDir()
+	chdir(t, workDir)
+
+	// Repo is already initialized — plain `init` would refuse.
+	require.NoError(t, os.MkdirAll(filepath.Join(workDir, ".psy"), 0o755))
+
+	homeDir := filepath.Join(workDir, "home")
+	require.NoError(t, os.MkdirAll(homeDir, 0o755))
+	t.Setenv("HOME", homeDir)
+	t.Setenv("USERPROFILE", homeDir)
+
+	var out bytes.Buffer
+	root := NewRootCmd(&out, &out)
+	root.SetArgs([]string{"init", "--install-plugins"})
+	require.NoError(t, root.Execute(), "--install-plugins should tolerate an existing .psy")
+
+	// Plugins are installed despite .psy already existing.
+	require.FileExists(t, filepath.Join(homeDir, ".claude", "skills", "psy-sync", "SKILL.md"))
+	require.FileExists(t, filepath.Join(homeDir, ".claude", "skills", "psy-sync-all", "SKILL.md"))
 }
 
 func TestInit_InstallPlugins_ListsInstalled(t *testing.T) {

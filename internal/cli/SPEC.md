@@ -39,7 +39,7 @@ created: 2026-06-05
 # 子命令
 
 - `psy init` — 在当前目录创建 `.psy/` 目录，追加 psyduck 生命周期说明到 `CLAUDE.md`（幂等，通过 `<!-- psyduck -->` 标记检测重复）。
-- `psy init --install-plugins` — 将嵌入的 skill 文件安装到 `~/.claude/skills/<name>/SKILL.md`，已存在的目录跳过不覆盖。
+- `psy init --install-plugins` — 将嵌入的 skill 文件安装到 `~/.claude/skills/<name>/SKILL.md`，覆盖已存在文件；`.psy` 已存在时不报错，可重复运行以刷新全局 skill。
 - `psy version` — 输出版本号。
 - `psy check` — 只读检测每个 `SPEC.md` 与现实的漂移（结构漂移退出 1，时序仅提示退出 0），零参数零 flag。
 
@@ -63,11 +63,11 @@ created: 2026-06-05
 
 ## 初始化幂等性
 
-`ensureClaudeMd` 通过 `<!-- psyduck -->` 标记检测 CLAUDE.md 中是否已包含 psyduck 片段，确保重复调用不会产生重复内容。`init` 命令本身通过检测 `.psy/` 目录存在来防止重复初始化。
+`ensureClaudeMd` 通过 `<!-- psyduck -->` 标记检测 CLAUDE.md 中是否已包含 psyduck 片段，确保重复调用不会产生重复内容。`init` 命令本身通过检测 `.psy/` 目录存在来防止重复初始化；带 `--install-plugins` 时则容忍已存在的 `.psy/`（仅提示，不报错），便于在已初始化仓库重复运行以刷新全局 skill。
 
 ## 插件安装策略
 
-`installPluginsToDir` 以目录为单位管理 skill：如果目标 skill 目录已存在则跳过，保护用户自定义内容不被覆盖。安装位置为 `~/.claude/skills/<name>/SKILL.md`，符合 Claude Code 全局 skill 发现规范。
+`installPluginsToDir` 以目录为单位管理 skill：始终覆盖写入 `<name>/SKILL.md`，便于重复运行 `--install-plugins` 刷新已安装的 skill。安装位置为 `~/.claude/skills/<name>/SKILL.md`，符合 Claude Code 全局 skill 发现规范。
 
 ## 退出码与门禁
 

@@ -31,13 +31,13 @@ psy init [--install-plugins]
 
 | Flag | Description |
 |---|---|
-| `--install-plugins` | 把内置 skill 安装到 `~/.claude/skills/<name>/SKILL.md`（全局 `/` 斜杠命令）。已有同名目录会跳过，不覆盖用户自定义 |
+| `--install-plugins` | 覆盖安装内置 skill 到 `~/.claude/skills/<name>/SKILL.md`（全局 `/` 斜杠命令）。`.psy` 已存在时不报错，可重复运行刷新 skill |
 
 ```bash
 # 最小初始化（只建 .psy/ + 更新 CLAUDE.md）
 psy init
 
-# 同时安装全局 /slash 命令
+# 安装/刷新全局 /slash 命令（覆盖已安装 skill；可重复运行）
 psy init --install-plugins
 ```
 
