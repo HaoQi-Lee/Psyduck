@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-labelledby="psyduck-title">
+  <title id="psyduck-title">Psyduck 抽象图形 — 黄色困惑鸭子</title>
+  <defs>
+    <radialGradient id="psyduckBody" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#fff3a8" />
+      <stop offset="60%" stop-color="#ffd23f" />
+      <stop offset="100%" stop-color="#b8860b" />
+    </radialGradient>
+    <filter id="psyduckGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g filter="url(#psyduckGlow)">
+    <!-- 身体 -->
+    <ellipse cx="100" cy="120" rx="55" ry="55" fill="url(#psyduckBody)" />
+    <!-- 头顶呆毛 -->
+    <path d="M80 70 L90 50 L92 72 Z" fill="url(#psyduckBody)" />
+    <path d="M100 65 L110 45 L112 70 Z" fill="url(#psyduckBody)" />
+    <path d="M118 70 L128 52 L122 75 Z" fill="url(#psyduckBody)" />
+    <!-- 嘴喙 -->
+    <ellipse cx="100" cy="130" rx="22" ry="10" fill="#ff8c00" />
+    <line x1="100" y1="125" x2="100" y2="135" stroke="#5a3a00" stroke-width="1" />
+    <!-- 眼睛（标志性的小圆点） -->
+    <circle cx="86" cy="110" r="3" fill="#0a0014" />
+    <circle cx="114" cy="110" r="3" fill="#0a0014" />
+    <!-- 手（困惑捧头） -->
+    <ellipse cx="55" cy="115" rx="14" ry="10" fill="url(#psyduckBody)" transform="rotate(-20 55 115)" />
+    <ellipse cx="145" cy="115" rx="14" ry="10" fill="url(#psyduckBody)" transform="rotate(20 145 115)" />
+  </g>
+</svg>

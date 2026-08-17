@@ -1,0 +1,52 @@
+/* assets/css/tokens.css — 全局设计令牌（颜色、字号、间距、动效曲线） */
+:root {
+  /* === 基底/全局 === */
+  --color-bg-base: #0a0014;
+  --color-neon-pink: #ff2e88;
+  --color-neon-cyan: #00f0ff;
+  --color-text-primary: #e0e0ff;
+  --color-text-muted: rgba(224, 224, 255, 0.6);
+
+  /* === Psyduck 主题 === */
+  --color-bg-psyduck: #0a1428;
+  --color-psyduck-glow: #ffd23f;
+  --color-psyduck-accent: #00d4ff;
+
+  /* === 字体 === */
+  --font-display: 'Orbitron', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* === 字号 === */
+  --fs-hero: 4rem;
+  --fs-section: 3rem;
+  --fs-h3: 1.5rem;
+  --fs-body: 1rem;
+  --fs-small: 0.875rem;
+  --fs-cli: 0.95rem;
+
+  /* === 间距 === */
+  --space-xs: 0.5rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2.5rem;
+  --space-xl: 4rem;
+
+  /* === 圆角 === */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-pill: 999px;
+
+  /* === 动效 === */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 200ms;
+  --duration-base: 400ms;
+  --duration-slow: 800ms;
+
+  /* === Z-index 层级 === */
+  --z-bg: -1;
+  --z-base: 0;
+  --z-sticky: 50;
+  --z-cursor: 100;
+  --z-modal: 1000;
+}

@@ -1,0 +1,44 @@
+/* assets/css/footer.css — Footer 区段 */
+#site-footer {
+  background-color: var(--color-bg-base);
+  padding: var(--space-lg) var(--space-md);
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.footer-tagline {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-sm);
+}
+
+.footer-tagline .neon-heart {
+  color: var(--color-neon-pink);
+  text-shadow: 0 0 8px var(--color-neon-pink);
+}
+
+.footer-social {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.footer-social a {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  color: var(--color-neon-cyan);
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.footer-social a:hover {
+  color: var(--color-neon-pink);
+}
+
+.footer-copyright {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.05em;
+}

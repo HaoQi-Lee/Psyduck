@@ -1,0 +1,14 @@
+/* assets/css/theme-psyduck.css — Psyduck 主题色覆盖 */
+.theme-psyduck.project-section {
+  --theme-bg: var(--color-bg-psyduck);
+  --theme-glow: var(--color-psyduck-glow);
+  --theme-accent: var(--color-psyduck-accent);
+  --theme-grid: rgba(0, 212, 255, 0.08);
+
+  background-image:
+    linear-gradient(var(--theme-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--theme-grid) 1px, transparent 1px);
+  background-size: 80px 80px;
+  background-attachment: fixed;
+  background-color: var(--theme-bg);
+}

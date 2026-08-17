@@ -1,0 +1,126 @@
+/* assets/css/hero.css — Hero 区段样式 */
+#hero {
+  min-height: 100vh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background-image: url('../svg/grid-bg.svg');
+  background-repeat: repeat;
+  background-attachment: fixed;
+  background-size: 80px 80px;
+}
+
+.hero-top {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-xl) var(--space-md);
+}
+
+.hero-handle {
+  font-size: var(--fs-hero);
+  color: var(--color-neon-pink);
+  text-shadow: 0 0 20px var(--color-neon-pink);
+  margin-bottom: var(--space-sm);
+  min-height: 1.2em; /* 打字机起步占位，避免布局抖动 */
+}
+
+.hero-tagline {
+  font-family: var(--font-mono);
+  font-size: 1.2rem;
+  color: var(--color-neon-cyan);
+  min-height: 1.5em;
+}
+
+.hero-tagline::before {
+  content: '// ';
+  opacity: 0.7;
+}
+
+.hero-bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start; /* 吉祥物固定在左下角 */
+  padding: 0 var(--space-xl) var(--space-lg);
+}
+
+.hero-mascot {
+  filter: drop-shadow(0 0 40px currentColor);
+  transition: transform var(--duration-base) var(--ease-out),
+              filter var(--duration-base) var(--ease-out);
+  cursor: pointer;
+}
+
+.hero-mascot.is-psyduck {
+  width: 180px;
+  height: 180px;
+  color: var(--color-psyduck-glow);
+  animation: float 4s var(--ease-in-out) infinite;
+}
+
+.hero-mascot:hover {
+  transform: scale(1.1);
+  filter: drop-shadow(0 0 60px currentColor);
+}
+
+.hero-scroll-hint {
+  position: absolute;
+  bottom: var(--space-md);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  color: var(--color-text-muted);
+  letter-spacing: 0.2em;
+  animation: bounce 2s var(--ease-in-out) infinite;
+}
+
+/* 关键帧（独立于 animations.css，因仅 Hero 使用） */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-12px); }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50%      { transform: translateX(-50%) translateY(8px); }
+}
+
+/* === 移动端降级 === */
+@media (max-width: 767px) {
+  .hero-handle {
+    font-size: 2.2rem;
+  }
+
+  .hero-tagline {
+    font-size: 1rem;
+  }
+
+  .hero-bottom {
+    flex-direction: column;
+    align-items: flex-start; /* 移动端同样靠左下角 */
+    padding: 0 var(--space-md) var(--space-md);
+    gap: var(--space-lg);
+  }
+
+  .hero-mascot.is-psyduck {
+    width: 120px;
+    height: 120px;
+  }
+
+  /* 关闭固定背景视差（移动 Safari 性能差） */
+  #hero {
+    background-attachment: scroll;
+  }
+}
+
+/* === 平板 === */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hero-handle {
+    font-size: 3rem;
+  }
+}

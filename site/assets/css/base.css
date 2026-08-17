@@ -1,0 +1,73 @@
+/* assets/css/base.css — 全局基础样式（body / section 容器 / 文字） */
+body {
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-body);
+  overflow-x: hidden;
+  position: relative;
+}
+
+main {
+  display: block;
+}
+
+section {
+  position: relative;
+  padding: var(--space-xl) var(--space-md);
+  width: 100%;
+  overflow: hidden;
+}
+
+.container {
+  max-width: 1024px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+h1 { font-size: var(--fs-hero); }
+h2 { font-size: var(--fs-section); }
+h3 { font-size: var(--fs-h3); }
+
+p {
+  color: var(--color-text-primary);
+  line-height: 1.7;
+}
+
+code, kbd, samp {
+  font-family: var(--font-mono);
+}
+
+/* Reveal 元素初始态（步骤 4 的 IntersectionObserver 会切换 .is-visible） */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity var(--duration-slow) var(--ease-out),
+    transform var(--duration-slow) var(--ease-out);
+  will-change: opacity, transform;
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 可视化辅助：默认隐藏的工具类 */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

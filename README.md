@@ -7,9 +7,10 @@
 
 ```bash
 # Build (Go 1.22+)
-make build        # → bin/psy
-# 或
-go build -o bin/psy ./cmd/psy
+# 交叉编译三平台
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -o bin/psy-windows-amd64.exe ./cmd/psy
+GOOS=darwin  GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -o bin/psy-darwin-arm64    ./cmd/psy
+GOOS=linux   GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -o bin/psy-linux-amd64     ./cmd/psy
 
 # In your repo (cd to repo root first)
 ./psy init --install-plugins   # create .psy/ + install skills as /slash commands
@@ -234,11 +235,22 @@ psyduck/
 ### Build & Test
 
 ```bash
-make build     # go build -o bin/psy ./cmd/psy
-make test      # go test ./...
-make lint      # go vet ./...
-make tidy      # go mod tidy
+# 交叉编译三平台（windows/amd64、darwin/arm64、linux/amd64）
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -o bin/psy-windows-amd64.exe ./cmd/psy
+GOOS=darwin  GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -o bin/psy-darwin-arm64    ./cmd/psy
+GOOS=linux   GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -o bin/psy-linux-amd64     ./cmd/psy
+# 注入版本号：追加 -ldflags "-X github.com/psyduck/psyduck/internal/version.Version=vX.Y.Z"
+
+# 单平台快速构建
+go build -o bin/psy ./cmd/psy
+
+# 测试 / 静态检查 / 依赖整理
+go test ./...
+go vet ./...
+go mod tidy
 ```
+
+`CGO_ENABLED=0 -trimpath` 保证零外部依赖、可复现。
 
 ### Design Principles
 

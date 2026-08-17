@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- SEO 基础 -->
+  <title>Psyduck — 面向 Claude Code 的 SPEC 生命周期管理框架</title>
+  <meta name="description" content="Psyduck 是一个轻量级 SPEC 生命周期管理框架，为 Claude Code 工作流而生。单二进制、零依赖、零网络调用。" />
+  <link rel="canonical" href="https://psyduck.github.io/" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Psyduck — SPEC 生命周期管理框架" />
+  <meta property="og:description" content="轻量级 SPEC 生命周期管理框架，为 Claude Code 工作流而生。文件即数据，Git 即状态。" />
+  <meta property="og:image" content="assets/og-image.png" />
+  <meta property="og:url" content="https://psyduck.github.io/" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Psyduck — SPEC 生命周期管理框架" />
+  <meta name="twitter:description" content="轻量级 SPEC 生命周期管理框架，为 Claude Code 工作流而生。文件即数据，Git 即状态。" />
+  <meta name="twitter:image" content="assets/og-image.png" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Styles：顺序固定，reset → tokens → base → 后续步骤追加 -->
+  <link rel="stylesheet" href="assets/css/reset.css" />
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/base.css" />
+  <link rel="stylesheet" href="assets/css/hero.css" />
+  <link rel="stylesheet" href="assets/css/project.css" />
+  <link rel="stylesheet" href="assets/css/theme-psyduck.css" />
+  <link rel="stylesheet" href="assets/css/animations.css" />
+  <link rel="stylesheet" href="assets/css/footer.css" />
+  <link rel="stylesheet" href="assets/css/modal.css" />
+
+  <!-- JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "Psyduck",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Windows, macOS, Linux",
+        "url": "http://git.showcai.com.cn:7990/projects/TECH/repos/psyduck/browse",
+        "description": "轻量级 SPEC 生命周期管理框架，为 Claude Code 工作流而生",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <main>
+    <section id="hero" aria-label="Hero">
+      <div class="hero-top">
+        <h1 class="hero-handle" data-typewriter="PSYDUCK"></h1>
+        <p class="hero-tagline" data-typewriter="面向 Claude Code 的 SPEC 生命周期管理框架" data-typewriter-delay="800"></p>
+      </div>
+      <div class="hero-bottom">
+        <img
+          src="assets/psyduck.webp"
+          alt="Psyduck 吉祥物"
+          class="hero-mascot is-psyduck"
+          data-mascot="psyduck"
+        />
+      </div>
+      <div class="hero-scroll-hint" aria-hidden="true">▼ SCROLL TO EXPLORE</div>
+    </section>
+
+    <section id="psyduck" class="theme-psyduck project-section" aria-label="Psyduck 项目">
+      <img
+        src="assets/svg/sprites/psyduck-pixel.svg"
+        alt=""
+        aria-hidden="true"
+        class="project-sprite is-right"
+      />
+      <div class="container">
+        <h2 class="project-title reveal">PSYDUCK</h2>
+        <p class="project-subtitle reveal">文件即数据 · Git 即状态 · Psy 是之上的薄封装</p>
+        <p class="project-intro reveal">
+          Psyduck 是一个轻量级 SPEC 生命周期管理框架，专为 Claude Code 工作流设计。
+          它只管 spec 的生命周期——内容生成交给 superpowers 等技能。
+          单二进制、零运行时依赖、零网络调用、零 LLM 依赖——只读写 <code>.psy/</code> 目录和各 package 的 <code>SPEC.md</code>。
+        </p>
+
+        <div class="feature-grid">
+          <article class="feature-card reveal">
+            <div class="feature-icon" aria-hidden="true">📜</div>
+            <h3 class="feature-title">SPEC 即文档</h3>
+            <p class="feature-desc">
+              每个代码包自动维护一份 <code>SPEC.md</code>——标准 Markdown + YAML front-matter，
+              grep 友好，Git 可追踪。文档只记录现实，不写期望。
+            </p>
+          </article>
+          <article class="feature-card reveal">
+            <div class="feature-icon" aria-hidden="true">🔄</div>
+            <h3 class="feature-title">变更集同步</h3>
+            <p class="feature-desc">
+              <code>/psy-sync</code> 在每次实施完成后自动更新受影响包的 spec，
+              将设计文档归档到 <code>.psy/</code>。归档是 <code>git mv</code>，不是复制。
+            </p>
+          </article>
+          <article class="feature-card reveal">
+            <div class="feature-icon" aria-hidden="true">⚡</div>
+            <h3 class="feature-title">零侵入架构</h3>
+            <p class="feature-desc">
+              不改源码、不加依赖、不联网、不调 LLM。
+              Go 单二进制，跨平台，<code>psy init</code> 即用。
+              薄到几乎不存在，但一旦拥有就回不去。
+            </p>
+          </article>
+        </div>
+
+        <div class="cli-window reveal" data-cli="psyduck">
+          <div class="cli-titlebar" aria-hidden="true">
+            <span class="cli-dot is-red"></span>
+            <span class="cli-dot is-yellow"></span>
+            <span class="cli-dot is-green"></span>
+            <span class="cli-title">psyduck@spec ~ %</span>
+          </div>
+          <div class="cli-body" data-cli-lines='["$ psy init --install-plugins","✓ Created .psy/ directory","✓ Updated CLAUDE.md with SPEC reading rules","✓ Installed skills → ~/.claude/skills/","  /psy-sync      变更集同步","  /psy-sync-all  全量同步","","$ psy version","psy v0.1.0 (go1.22 · cross-platform)"]'></div>
+        </div>
+
+        <div class="cta-group reveal">
+          <a class="cta-btn is-primary" href="https://github.com/HaoQi-Lee/Psyduck" target="_blank" rel="noopener noreferrer">
+            ⭐ Star on GitHub
+          </a>
+          <button class="cta-btn is-secondary" type="button" data-contact-trigger>
+            📱 Contact Me
+          </button>
+          <a class="cta-btn is-secondary" href="./doc.html" target="_blank" rel="noopener noreferrer">
+            📖 Documentation
+          </a>
+        </div>
+
+        <div class="download-group reveal">
+          <p class="download-label">⬇ Download Binary</p>
+          <div class="download-btns">
+            <a class="download-btn" href="/psy-windows-amd64.exe" target="_blank" rel="noopener noreferrer">
+              <span class="download-os">🪟</span>
+              <span class="download-name">Windows</span>
+              <span class="download-arch">x86_64 · .exe</span>
+            </a>
+            <a class="download-btn" href="/psy-darwin-arm64" target="_blank" rel="noopener noreferrer">
+              <span class="download-os">🍎</span>
+              <span class="download-name">macOS</span>
+              <span class="download-arch">Apple Silicon · .tar.gz</span>
+            </a>
+            <a class="download-btn" href="psy-linux-amd64" target="_blank" rel="noopener noreferrer">
+              <span class="download-os">🐧</span>
+              <span class="download-name">Linux</span>
+              <span class="download-arch">x86_64 · .tar.gz</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer id="site-footer" aria-label="Footer">
+      <p class="footer-tagline">
+        文件即数据 · Git 即状态 · Built with <span class="neon-heart" aria-hidden="true">💛</span>
+        by the Psyduck community
+      </p>
+      <p class="footer-copyright">© 2026 Psyduck Contributors. All rights reserved.</p>
+    </footer>
+  </main>
+
+  <!-- Contact 二维码弹窗 -->
+  <div id="contact-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="contact-modal-title" aria-hidden="true">
+    <div class="modal-backdrop" data-contact-close></div>
+    <div class="modal-panel">
+      <img class="modal-qr" src="assets/qrcode.jpg" alt="联系方式二维码" width="280" height="280" />
+    </div>
+  </div>
+
+  <!-- 脚本：先各模块挂载到 window.*，最后 main.js 装配启动 -->
+  <script src="assets/js/typewriter.js" defer></script>
+  <script src="assets/js/scroll-reveal.js" defer></script>
+  <script src="assets/js/cursor-glow.js" defer></script>
+  <script src="assets/js/parallax.js" defer></script>
+  <script src="assets/js/mascot.js" defer></script>
+  <script src="assets/js/contact-modal.js" defer></script>
+  <script src="assets/js/main.js" defer></script>
+</body>
+</html>

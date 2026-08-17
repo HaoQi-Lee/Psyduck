@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- SEO 基础 -->
+  <title>用户指南 — Psyduck SPEC 生命周期管理框架</title>
+  <meta name="description" content="PsyDuck 用户指南：面向使用者的操作指南，聚焦怎么用和什么场景用——日常自动维护 spec、Bootstrap、漂移修复、安装初始化与日常速查。" />
+  <link rel="canonical" href="https://psyduck.github.io/doc.html" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="PsyDuck 用户指南" />
+  <meta property="og:description" content="面向使用者的操作指南：怎么用、什么场景用 PsyDuck。" />
+  <meta property="og:image" content="assets/og-image.png" />
+  <meta property="og:url" content="https://psyduck.github.io/doc.html" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="PsyDuck 用户指南" />
+  <meta name="twitter:description" content="面向使用者的操作指南：怎么用、什么场景用 PsyDuck。" />
+  <meta name="twitter:image" content="assets/og-image.png" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Styles：顺序固定，reset → tokens → base → 后续步骤追加 -->
+  <link rel="stylesheet" href="assets/css/reset.css" />
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/base.css" />
+  <link rel="stylesheet" href="assets/css/hero.css" />
+  <link rel="stylesheet" href="assets/css/project.css" />
+  <link rel="stylesheet" href="assets/css/theme-psyduck.css" />
+  <link rel="stylesheet" href="assets/css/animations.css" />
+  <link rel="stylesheet" href="assets/css/footer.css" />
+  <link rel="stylesheet" href="assets/css/doc.css" />
+
+  <!-- JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    "headline": "PsyDuck 用户指南",
+    "description": "面向使用者的操作指南：怎么用、什么场景用 PsyDuck。",
+    "inLanguage": "zh-CN"
+  }
+  </script>
+</head>
+<body>
+  <main>
+    <section id="guide" class="theme-psyduck project-section" aria-label="用户指南正文">
+      <div class="container">
+        <div class="doc">
+
+          <!-- 页头 -->
+          <header class="doc-header">
+            <h1 class="doc-title">用户指南</h1>
+            <p class="doc-subtitle">面向使用者的操作指南 · 怎么用 &amp; 什么场景用</p>
+          </header>
+
+          <!-- 顶部引言 -->
+          <blockquote class="doc-lead">
+            <p>面向使用者的操作指南。本文聚焦<strong>怎么用</strong>和<strong>什么场景用</strong>，不展开实现细节。</p>
+          </blockquote>
+
+          <!-- 目录 -->
+          <nav class="doc-toc reveal" aria-label="目录">
+            <p class="doc-toc-title">目 录 / Contents</p>
+            <ul>
+              <li><a href="#solve">PsyDuck 解决什么问题</a></li>
+              <li><a href="#scenarios">典型应用场景</a></li>
+              <li><a href="#install">安装与初始化</a></li>
+              <li><a href="#cheatsheet">日常使用速查</a></li>
+              <li><a href="#artifacts">两个产物：你需要知道的</a></li>
+              <li><a href="#notes">注意事项</a></li>
+            </ul>
+          </nav>
+
+          <!-- 1. 解决什么问题 -->
+          <section id="solve" class="doc-section">
+            <h2>PsyDuck 解决什么问题</h2>
+            <p>用 Claude Code（配合 superpowers 工作流）做开发时，有两样东西很容易失控：</p>
+            <ol>
+              <li><strong>代码包的 spec（<code>SPEC.md</code>）</strong>——改完代码后，描述这个包“做什么、暴露什么 API”的文档常常忘记更新，慢慢就和代码对不上了。</li>
+              <li><strong>设计文档</strong>——brainstorm、plan 阶段产出的设计稿散落在 <code>docs/</code> 下，代码改完没人归档，越积越多。</li>
+            </ol>
+            <p>PsyDuck 用一个极简二进制 <code>psy</code> 加两个斜杠命令，把这两件事在<strong>变更结束时自动收尾</strong>：</p>
+            <ul>
+              <li>为本次改动触及的每个代码包刷新 <code>SPEC.md</code>（永远反映当前代码）</li>
+              <li>把本次产出的设计文档归档进 <code>.psy/&lt;日期&gt;/</code></li>
+            </ul>
+            <blockquote>
+              <p><strong>关键定位：PsyDuck 只管生命周期（何时同步、归档到哪），不生成内容。</strong> 写 spec、写文档的具体内容交给 superpowers 等技能完成。</p>
+            </blockquote>
+          </section>
+
+          <!-- 2. 典型应用场景 -->
+          <section id="scenarios" class="doc-section">
+            <h2>典型应用场景</h2>
+
+            <h3>场景一：日常开发中自动维护 spec（最常用）</h3>
+            <p>仓库已经接入 PsyDuck。每次做新功能或改动，走标准 superpowers 流程：</p>
+            <div class="flow reveal">
+              <span class="flow-step">brainstorming</span>
+              <span class="flow-arrow" aria-hidden="true">→</span>
+              <span class="flow-step">writing-plans</span>
+              <span class="flow-arrow" aria-hidden="true">→</span>
+              <span class="flow-step">executing-plans</span>
+              <span class="flow-arrow" aria-hidden="true">→</span>
+              <span class="flow-step is-auto">/psy-sync<span class="flow-tag">自动</span></span>
+            </div>
+            <ul>
+              <li>前三步由 superpowers 技能驱动：探讨需求、产出计划、执行计划改代码。</li>
+              <li>计划阶段的设计文档落在 <code>docs/superpowers/specs/</code>。</li>
+              <li>
+                当 <code>executing-plans</code> 结束，<code>/psy-sync</code> <strong>自动触发</strong>，无需手动：
+                <ul>
+                  <li>给被改动的代码包刷新 <code>SPEC.md</code></li>
+                  <li>把刚才那份设计文档移动归档到 <code>.psy/2026-06-18/</code></li>
+                </ul>
+              </li>
+            </ul>
+            <blockquote>
+              <p>自动触发靠的是 <code>psy init</code> 写进 <code>CLAUDE.md</code> 的那条规则——所以“初始化”和“日常自动收尾”是连起来的。</p>
+            </blockquote>
+            <p><strong>价值</strong>：你不必记得“改完代码去更新文档”，工作流替你兜底。</p>
+
+            <h3>场景二：给一个已有代码库补 spec（Bootstrap）</h3>
+            <p>接手一个老项目，没有任何 <code>SPEC.md</code>。用全量命令一次性生成基线：</p>
+            <pre><code>/psy-sync-all</code></pre>
+            <p>它会遍历整个仓库，为每个识别到的代码包生成 <code>SPEC.md</code>，并把 <code>docs/superpowers/specs/</code> 下所有散落文档归档。首次运行 diff 很大，建议批量审查后再提交。</p>
+
+            <h3>场景三：修复 spec 漂移（Drift Recovery）</h3>
+            <p>某次改动没走 PsyDuck 流程（比如手动改了代码，或别人重构没同步），导致 spec 和代码对不上。再跑一次 <code>/psy-sync-all</code> 重新对齐即可。</p>
+            <blockquote>
+              <p><strong><code>/psy-sync</code> vs <code>/psy-sync-all</code></strong>：前者是<strong>变更集范围</strong>——只管刚做完的那次工作；后者是<strong>全仓库范围</strong>——用于 bootstrap 或修漂移。</p>
+            </blockquote>
+          </section>
+
+          <!-- 3. 安装与初始化 -->
+          <section id="install" class="doc-section">
+            <h2>安装与初始化</h2>
+            <div class="cli-window reveal" data-cli="psyduck">
+              <div class="cli-titlebar" aria-hidden="true">
+                <span class="cli-dot is-red"></span>
+                <span class="cli-dot is-yellow"></span>
+                <span class="cli-dot is-green"></span>
+                <span class="cli-title">setup ~ %</span>
+              </div>
+              <div class="cli-body" data-cli-lines='["# 1. 构建（需要 Go 1.22+）","$ make build            # 产物：bin/psy","# 或：go build -o bin/psy ./cmd/psy","","# 2. 在你的仓库根目录初始化","$ cd /path/to/your-repo","$ ./bin/psy init --install-plugins"]'></div>
+            </div>
+            <p><code>psy init</code> 做两件事：</p>
+            <ul>
+              <li>创建 <code>.psy/</code> 目录（归档根目录）</li>
+              <li>在项目 <code>CLAUDE.md</code> 末尾追加“读 <code>SPEC.md</code>、变更结束调 <code>/psy-sync</code>”的规则（已存在则跳过，幂等）</li>
+            </ul>
+            <p><code>--install-plugins</code> 把内置技能安装为 Claude Code 的<strong>全局斜杠命令</strong>（<code>~/.claude/skills/&lt;name&gt;/SKILL.md</code>），之后就能直接用 <code>/psy-sync</code>、<code>/psy-sync-all</code>。已存在的同名技能会被跳过，不会覆盖你的自定义。</p>
+            <blockquote>
+              <p><code>--install-plugins</code> 与初始化互相独立：即便仓库已经初始化过，也能单独再跑 <code>psy init --install-plugins</code> 只补装命令。</p>
+            </blockquote>
+            <p>最小化安装（只建 <code>.psy/</code>、不装斜杠命令）：<code>psy init</code>。</p>
+          </section>
+
+          <!-- 4. 日常使用速查 -->
+          <section id="cheatsheet" class="doc-section">
+            <h2>日常使用速查</h2>
+            <div class="table-wrap reveal">
+              <table class="doc-table">
+                <thead>
+                  <tr>
+                    <th>你想做的事</th>
+                    <th>用什么</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>第一次接入 / 单独补装斜杠命令</td>
+                    <td><code>psy init --install-plugins</code></td>
+                  </tr>
+                  <tr>
+                    <td>查看版本</td>
+                    <td><code>psy version</code></td>
+                  </tr>
+                  <tr>
+                    <td>一次正常改动结束，收尾 spec + 归档</td>
+                    <td><code>/psy-sync</code>（通常自动触发）</td>
+                  </tr>
+                  <tr>
+                    <td>给整个仓库生成 / 重新对齐 spec</td>
+                    <td><code>/psy-sync-all</code>（手动，仅 bootstrap 或漂移时）</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- 5. 两个产物 -->
+          <section id="artifacts" class="doc-section">
+            <h2>两个产物：你需要知道的</h2>
+
+            <article class="doc-card reveal">
+              <h3><code>SPEC.md</code> —— 每个代码包的“现状说明书”</h3>
+              <ul>
+                <li>位置：代码包目录内（如 <code>internal/cli/SPEC.md</code>）。</li>
+                <li><strong>由技能自动维护</strong>，你通常不需要手写；需要时也可手动编辑，技能会保留已有内容。</li>
+                <li>内容用中文，结构固定：概述 / 文件 / API / 依赖 / 设计重点。</li>
+                <li>带 front-matter（<code>psy_kind</code>、<code>psy_version</code>、<code>package</code>），标准 markdown + YAML，grep 友好。</li>
+              </ul>
+            </article>
+
+            <article class="doc-card reveal">
+              <h3><code>.psy/</code> —— 设计文档的归档处</h3>
+              <ul>
+                <li>结构：<code>.psy/&lt;YYYY-MM-DD&gt;/&lt;文档名&gt;.md</code>。</li>
+                <li>来源：<code>docs/superpowers/specs/*.md</code> 下的设计文档；归档时<strong>移动</strong>而非复制，原位置被清空，git 历史保留。</li>
+                <li>同名冲突自动追加 <code>-2</code>、<code>-3</code>。</li>
+              </ul>
+            </article>
+          </section>
+
+          <!-- 6. 注意事项 -->
+          <section id="notes" class="doc-section">
+            <h2>注意事项</h2>
+            <ul>
+              <li><strong>不联网、不调 LLM</strong>：<code>psy</code> 二进制只读写本地文件，内容生成全部交给 superpowers 等技能。</li>
+              <li><strong>变更集为空时不强行扫描</strong>：<code>/psy-sync</code> 发现没有改动会直接告诉你，不会擅自做全量扫描。</li>
+              <li><strong><code>executing-plans</code> 之后别跳过 <code>/psy-sync</code></strong>：这是让“spec 与代码一致”的兜底步骤。</li>
+            </ul>
+          </section>
+
+        </div>
+      </div>
+    </section>
+
+    <footer id="site-footer" aria-label="Footer">
+      <p class="footer-tagline">
+        文件即数据 · Git 即状态 · Built with <span class="neon-heart" aria-hidden="true">💛</span>
+        by the Psyduck community
+      </p>
+      <p class="footer-copyright">© 2026 Psyduck Contributors. All rights reserved.</p>
+    </footer>
+  </main>
+
+  <!-- 脚本：先各模块挂载到 window.*，最后 main.js 装配启动 -->
+  <script src="assets/js/typewriter.js" defer></script>
+  <script src="assets/js/scroll-reveal.js" defer></script>
+  <script src="assets/js/cursor-glow.js" defer></script>
+  <script src="assets/js/main.js" defer></script>
+</body>
+</html>
